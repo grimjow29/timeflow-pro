@@ -1,0 +1,91 @@
+'use client';
+
+import { useState, useEffect, useCallback } from 'react';
+
+export type Theme = 'dark' | 'light' | 'system';
+
+export interface UseThemeReturn {
+  theme: Theme;
+  setTheme: (theme: Theme) => void;
+  resolvedTheme: 'dark' | 'light';
+}
+
+const THEME_KEY = 'timeflow-theme';
+
+function getSystemTheme(): 'dark' | 'light' {
+  if (typeof window === 'undefined') return 'dark';
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+
+function getStoredTheme(): Theme {
+  if (typeof window === 'undefined') return 'system';
+  const stored = localStorage.getItem(THEME_KEY);
+  if (stored === 'dark' || stored === 'light' || stored === 'system') {
+    return stored;
+  }
+  return 'system';
+}
+
+function applyTheme(resolvedTheme: 'dark' | 'light') {
+  if (typeof document === 'undefined') return;
+
+  const root = document.documentElement;
+  root.classList.remove('dark', 'light');
+  root.classList.add(resolvedTheme);
+
+  // Update meta theme-color
+  const metaThemeColor = document.querySelector('meta[name="theme-color"]');
+  if (metaThemeColor) {
+    metaThemeColor.setAttribute('content', resolvedTheme === 'dark' ? '#0f0a1a' : '#f8fafc');
+  }
+}
+
+export function useTheme(): UseThemeReturn {
+  const [theme, setThemeState] = useState<Theme>('system');
+  const [resolvedTheme, setResolvedTheme] = useState<'dark' | 'light'>('dark');
+  const [mounted, setMounted] = useState(false);
+
+  // Initialize on mount
+  useEffect(() => {
+    const storedTheme = getStoredTheme();
+    const resolved = storedTheme === 'system' ? getSystemTheme() : storedTheme;
+
+    setThemeState(storedTheme);
+    setResolvedTheme(resolved);
+    applyTheme(resolved);
+    setMounted(true);
+  }, []);
+
+  // Listen for system theme changes
+  useEffect(() => {
+    if (!mounted) return;
+
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+
+    const handleChange = (e: MediaQueryListEvent) => {
+      if (theme === 'system') {
+        const newResolved = e.matches ? 'dark' : 'light';
+        setResolvedTheme(newResolved);
+        applyTheme(newResolved);
+      }
+    };
+
+    mediaQuery.addEventListener('change', handleChange);
+    return () => mediaQuery.removeEventListener('change', handleChange);
+  }, [theme, mounted]);
+
+  const setTheme = useCallback((newTheme: Theme) => {
+    setThemeState(newTheme);
+    localStorage.setItem(THEME_KEY, newTheme);
+
+    const resolved = newTheme === 'system' ? getSystemTheme() : newTheme;
+    setResolvedTheme(resolved);
+    applyTheme(resolved);
+  }, []);
+
+  return {
+    theme,
+    setTheme,
+    resolvedTheme,
+  };
+}
