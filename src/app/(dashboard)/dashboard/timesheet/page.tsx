@@ -33,7 +33,6 @@ export default function TimesheetPage() {
 
   // Data states
   const [projects, setProjects] = useState<Project[]>([]);
-  const [timeEntries, setTimeEntries] = useState<TimeEntryWithProject[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -65,32 +64,8 @@ export default function TimesheetPage() {
     }
   }, [supabase, selectedProjectId]);
 
-  // Charger les entrées de temps pour la semaine
-  const loadTimeEntries = useCallback(async () => {
-    if (weekDates.length === 0) return;
-
-    const weekStart = weekDates[0].toISOString().split("T")[0];
-    const weekEnd = weekDates[6].toISOString().split("T")[0];
-
-    try {
-      const response = await fetch(
-        `/api/time-entries?week_start=${weekStart}&week_end=${weekEnd}`
-      );
-      const result = await response.json();
-
-      if (response.ok && result.data) {
-        setTimeEntries(result.data);
-        buildTimeDataGrid(result.data);
-      }
-    } catch (error) {
-      console.error("Erreur chargement entrées:", error);
-    } finally {
-      setLoading(false);
-    }
-  }, [weekDates]);
-
   // Construire la grille de données à partir des entrées
-  const buildTimeDataGrid = (entries: TimeEntryWithProject[]) => {
+  const buildTimeDataGrid = useCallback((entries: TimeEntryWithProject[]) => {
     const grid: Record<string, { minutes: number; entryId?: string }[]> = {};
 
     // Initialiser la grille pour tous les projets
@@ -119,7 +94,30 @@ export default function TimesheetPage() {
     });
 
     setTimeData(grid);
-  };
+  }, [projects]);
+
+  // Charger les entrées de temps pour la semaine
+  const loadTimeEntries = useCallback(async () => {
+    if (weekDates.length === 0) return;
+
+    const weekStart = weekDates[0].toISOString().split("T")[0];
+    const weekEnd = weekDates[6].toISOString().split("T")[0];
+
+    try {
+      const response = await fetch(
+        `/api/time-entries?week_start=${weekStart}&week_end=${weekEnd}`
+      );
+      const result = await response.json();
+
+      if (response.ok && result.data) {
+        buildTimeDataGrid(result.data);
+      }
+    } catch (error) {
+      console.error("Erreur chargement entrées:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, [weekDates, buildTimeDataGrid]);
 
   // Charger les données au montage et quand la semaine change
   useEffect(() => {

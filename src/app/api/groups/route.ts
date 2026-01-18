@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
-import { CreateGroupInput, Group } from "@/lib/types";
+import { CreateGroupInput } from "@/lib/types";
 
 /**
  * GET /api/groups
