@@ -1,5 +1,35 @@
 -- TimeFlow Pro - Database Schema
 -- Execute this SQL in Supabase SQL Editor
+-- Version idempotente - peut être exécutée plusieurs fois sans erreur
+
+-- =====================
+-- CLEANUP (supprime les objets existants)
+-- =====================
+
+-- Supprimer les triggers existants
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+DROP TRIGGER IF EXISTS update_profiles_updated_at ON public.profiles;
+DROP TRIGGER IF EXISTS update_groups_updated_at ON public.groups;
+DROP TRIGGER IF EXISTS update_projects_updated_at ON public.projects;
+DROP TRIGGER IF EXISTS update_time_entries_updated_at ON public.time_entries;
+DROP TRIGGER IF EXISTS update_timesheet_approvals_updated_at ON public.timesheet_approvals;
+
+-- Supprimer les fonctions existantes
+DROP FUNCTION IF EXISTS public.handle_new_user() CASCADE;
+DROP FUNCTION IF EXISTS public.update_updated_at() CASCADE;
+
+-- Supprimer les tables existantes (ordre inverse des dépendances)
+DROP TABLE IF EXISTS public.tags CASCADE;
+DROP TABLE IF EXISTS public.time_entries CASCADE;
+DROP TABLE IF EXISTS public.timesheet_approvals CASCADE;
+DROP TABLE IF EXISTS public.projects CASCADE;
+DROP TABLE IF EXISTS public.groups CASCADE;
+DROP TABLE IF EXISTS public.profiles CASCADE;
+
+-- Supprimer les types existants
+DROP TYPE IF EXISTS user_role CASCADE;
+DROP TYPE IF EXISTS project_status CASCADE;
+DROP TYPE IF EXISTS approval_status CASCADE;
 
 -- =====================
 -- ENUMS
@@ -20,6 +50,8 @@ CREATE TABLE public.profiles (
   avatar_url TEXT,
   role user_role DEFAULT 'EMPLOYEE',
   group_id UUID,
+  weekly_goal_hours INTEGER DEFAULT 40,
+  settings JSONB DEFAULT '{}',
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -53,6 +85,15 @@ CREATE TABLE public.projects (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Tags system
+CREATE TABLE public.tags (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL,
+  color TEXT DEFAULT '#8b5cf6',
+  user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- Timesheet Approvals
 CREATE TABLE public.timesheet_approvals (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -79,6 +120,7 @@ CREATE TABLE public.time_entries (
   duration INTEGER NOT NULL DEFAULT 0, -- in minutes
   description TEXT,
   billable BOOLEAN DEFAULT true,
+  tags UUID[] DEFAULT '{}',
   timesheet_id UUID REFERENCES public.timesheet_approvals(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
@@ -101,6 +143,7 @@ ALTER TABLE public.groups ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.projects ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.time_entries ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.timesheet_approvals ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.tags ENABLE ROW LEVEL SECURITY;
 
 -- Profiles policies
 CREATE POLICY "Profiles are viewable by authenticated users" ON public.profiles
@@ -131,6 +174,10 @@ CREATE POLICY "Managers can create projects" ON public.projects
   FOR INSERT TO authenticated WITH CHECK (
     EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role IN ('ADMIN', 'MANAGER'))
   );
+
+-- Tags policies
+CREATE POLICY "Users can manage their own tags" ON public.tags
+  FOR ALL TO authenticated USING (auth.uid() = user_id);
 
 -- Time entries policies
 CREATE POLICY "Users can view own time entries" ON public.time_entries
@@ -188,7 +235,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
-CREATE OR REPLACE TRIGGER on_auth_user_created
+CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 

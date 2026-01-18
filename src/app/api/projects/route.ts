@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { getAuthUser, getSupabaseClient } from "@/lib/auth-helper";
 import { NextRequest, NextResponse } from "next/server";
 import { CreateProjectInput, Project } from "@/lib/types";
 
@@ -11,13 +11,10 @@ import { CreateProjectInput, Project } from "@/lib/types";
  */
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await createClient();
+    const supabase = await getSupabaseClient();
 
     // Vérifier l'authentification
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
+    const { user, error: authError } = await getAuthUser();
 
     if (authError || !user) {
       return NextResponse.json(
@@ -76,13 +73,10 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient();
+    const supabase = await getSupabaseClient();
 
     // Vérifier l'authentification
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
+    const { user, error: authError } = await getAuthUser();
 
     if (authError || !user) {
       return NextResponse.json(

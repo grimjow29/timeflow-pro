@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { getAuthUser, getSupabaseClient } from "@/lib/auth-helper";
 import { NextRequest, NextResponse } from "next/server";
 import { startOfWeek, endOfWeek, startOfMonth, endOfMonth, subWeeks, subMonths, format, eachDayOfInterval, parseISO } from "date-fns";
 
@@ -29,13 +29,10 @@ interface AnalyticsResponse {
  */
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await createClient();
+    const supabase = await getSupabaseClient();
 
     // Verify authentication
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
+    const { user, error: authError } = await getAuthUser();
 
     if (authError || !user) {
       return NextResponse.json(
