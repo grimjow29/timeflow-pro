@@ -11,6 +11,8 @@ import {
   CheckCircle2,
   BarChart3,
   LogOut,
+  Calendar,
+  LineChart,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
@@ -19,6 +21,7 @@ import type { Profile } from "@/lib/types";
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutGrid },
   { name: "Timesheet", href: "/dashboard/timesheet", icon: CalendarClock },
+  { name: "Calendrier", href: "/dashboard/calendar", icon: Calendar },
   { name: "Projets", href: "/dashboard/projects", icon: FolderKanban },
   { name: "Équipe", href: "/dashboard/team", icon: Users },
 ];
@@ -30,6 +33,7 @@ const management = [
     icon: CheckCircle2,
     badge: 3,
   },
+  { name: "Analytics", href: "/dashboard/analytics", icon: LineChart },
   { name: "Rapports", href: "/dashboard/reports", icon: BarChart3 },
 ];
 

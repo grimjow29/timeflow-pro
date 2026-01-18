@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { Search, Bell, Play, Pause, Square } from "lucide-react";
 import { formatTime } from "@/lib/utils";
 import type { Profile } from "@/lib/types";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 interface HeaderProps {
   user: Profile | null;
@@ -131,6 +132,9 @@ export function Header({ user }: HeaderProps) {
             )}
           </div>
         </div>
+
+        {/* Theme Toggle */}
+        <ThemeToggle />
 
         {/* Notifications */}
         <button className="w-8 h-8 rounded-lg hover:bg-white/5 flex items-center justify-center text-slate-400 transition-colors relative">

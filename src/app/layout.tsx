@@ -15,8 +15,16 @@ const jetbrains = JetBrains_Mono({
 export const metadata: Metadata = {
   title: "TimeFlow Pro",
   description: "Advanced time tracking for the modern era",
+  manifest: "/manifest.json",
+  themeColor: "#8b5cf6",
   icons: {
     icon: "/favicon.ico",
+    apple: "/icons/icon-192.png",
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "TimeFlow Pro",
   },
 };
 
