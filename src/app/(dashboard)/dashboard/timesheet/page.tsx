@@ -1,17 +1,27 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { ChevronLeft, ChevronRight, Calendar, Play, Send } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import { ChevronLeft, ChevronRight, Calendar, Play, Send, Loader2 } from "lucide-react";
 import { GlassCard } from "@/components/ui/glass-card";
 import { formatTime, getWeekDates } from "@/lib/utils";
+import { createClient } from "@/lib/supabase/client";
+import { Project } from "@/lib/types";
 
 const DAYS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
 
-// Mock projects for now
-const projects = [
-  { id: "1", name: "Client A", task: "Design UI" },
-  { id: "2", name: "Client B", task: "Backend Dev" },
-];
+interface TimeEntryWithProject {
+  id: string;
+  user_id: string;
+  project_id: string;
+  date: string;
+  duration: number;
+  description: string | null;
+  billable: boolean;
+  timesheet_id: string | null;
+  created_at: string;
+  updated_at: string;
+  project?: { id: string; name: string; color: string };
+}
 
 export default function TimesheetPage() {
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -19,16 +29,108 @@ export default function TimesheetPage() {
   const [isTimerRunning, setIsTimerRunning] = useState(false);
   const [timerSeconds, setTimerSeconds] = useState(0);
   const [description, setDescription] = useState("");
+  const [selectedProjectId, setSelectedProjectId] = useState<string>("");
 
-  // Grid data: projectId -> dayIndex -> minutes
-  const [timeData, setTimeData] = useState<Record<string, number[]>>({
-    "1": [240, 210, 240, 120, 180, 0, 0],
-    "2": [180, 240, 210, 300, 240, 0, 0],
-  });
+  // Data states
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [timeEntries, setTimeEntries] = useState<TimeEntryWithProject[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
+  // Grid data: projectId -> dayIndex -> { minutes, entryId }
+  const [timeData, setTimeData] = useState<
+    Record<string, { minutes: number; entryId?: string }[]>
+  >({});
+
+  const supabase = createClient();
+
+  // Calculer les dates de la semaine
   useEffect(() => {
     setWeekDates(getWeekDates(currentDate));
   }, [currentDate]);
+
+  // Charger les projets
+  const loadProjects = useCallback(async () => {
+    const { data, error } = await supabase
+      .from("projects")
+      .select("*")
+      .eq("status", "ACTIVE")
+      .order("name");
+
+    if (!error && data) {
+      setProjects(data);
+      if (data.length > 0 && !selectedProjectId) {
+        setSelectedProjectId(data[0].id);
+      }
+    }
+  }, [supabase, selectedProjectId]);
+
+  // Charger les entrées de temps pour la semaine
+  const loadTimeEntries = useCallback(async () => {
+    if (weekDates.length === 0) return;
+
+    const weekStart = weekDates[0].toISOString().split("T")[0];
+    const weekEnd = weekDates[6].toISOString().split("T")[0];
+
+    try {
+      const response = await fetch(
+        `/api/time-entries?week_start=${weekStart}&week_end=${weekEnd}`
+      );
+      const result = await response.json();
+
+      if (response.ok && result.data) {
+        setTimeEntries(result.data);
+        buildTimeDataGrid(result.data);
+      }
+    } catch (error) {
+      console.error("Erreur chargement entrées:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, [weekDates]);
+
+  // Construire la grille de données à partir des entrées
+  const buildTimeDataGrid = (entries: TimeEntryWithProject[]) => {
+    const grid: Record<string, { minutes: number; entryId?: string }[]> = {};
+
+    // Initialiser la grille pour tous les projets
+    projects.forEach((project) => {
+      grid[project.id] = Array(7)
+        .fill(null)
+        .map(() => ({ minutes: 0, entryId: undefined }));
+    });
+
+    // Remplir avec les entrées existantes
+    entries.forEach((entry) => {
+      if (!grid[entry.project_id]) {
+        grid[entry.project_id] = Array(7)
+          .fill(null)
+          .map(() => ({ minutes: 0, entryId: undefined }));
+      }
+
+      const entryDate = new Date(entry.date);
+      const dayOfWeek = entryDate.getDay();
+      const dayIndex = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+
+      grid[entry.project_id][dayIndex] = {
+        minutes: entry.duration,
+        entryId: entry.id,
+      };
+    });
+
+    setTimeData(grid);
+  };
+
+  // Charger les données au montage et quand la semaine change
+  useEffect(() => {
+    loadProjects();
+  }, [loadProjects]);
+
+  useEffect(() => {
+    if (weekDates.length > 0 && projects.length > 0) {
+      loadTimeEntries();
+    }
+  }, [weekDates, projects, loadTimeEntries]);
 
   // Timer logic
   useEffect(() => {
@@ -47,26 +149,192 @@ export default function TimesheetPage() {
     const newDate = new Date(currentDate);
     newDate.setDate(currentDate.getDate() + direction * 7);
     setCurrentDate(newDate);
+    setLoading(true);
   };
 
-  const handleQuickAdd = (minutes: number) => {
-    // TODO: Add to selected cell or current day
-    console.log(`Quick add ${minutes} minutes`);
-  };
-
-  const handleCellChange = (projectId: string, dayIndex: number, value: string) => {
+  const handleCellChange = async (
+    projectId: string,
+    dayIndex: number,
+    value: string
+  ) => {
+    // Parser la valeur entrée (format HH:MM ou H)
     const parts = value.split(":");
     let minutes = 0;
     if (parts.length === 2) {
       minutes = parseInt(parts[0]) * 60 + parseInt(parts[1]);
-    } else if (parts.length === 1) {
+    } else if (parts.length === 1 && parts[0] !== "-" && parts[0] !== "") {
       minutes = parseInt(parts[0]) * 60;
     }
 
+    if (isNaN(minutes)) minutes = 0;
+
+    // Mettre à jour l'UI immédiatement
     setTimeData((prev) => ({
       ...prev,
-      [projectId]: prev[projectId].map((m, i) => (i === dayIndex ? minutes : m)),
+      [projectId]: prev[projectId]?.map((cell, i) =>
+        i === dayIndex ? { ...cell, minutes } : cell
+      ) || Array(7).fill(null).map(() => ({ minutes: 0 })),
     }));
+  };
+
+  // Sauvegarder une cellule quand elle perd le focus
+  const handleCellBlur = async (projectId: string, dayIndex: number) => {
+    const cellData = timeData[projectId]?.[dayIndex];
+    if (!cellData) return;
+
+    const date = weekDates[dayIndex]?.toISOString().split("T")[0];
+    if (!date) return;
+
+    setSaving(true);
+
+    try {
+      if (cellData.entryId) {
+        // Mettre à jour l'entrée existante
+        if (cellData.minutes === 0) {
+          // Supprimer si durée = 0
+          await fetch(`/api/time-entries/${cellData.entryId}`, {
+            method: "DELETE",
+          });
+          setTimeData((prev) => ({
+            ...prev,
+            [projectId]: prev[projectId].map((cell, i) =>
+              i === dayIndex ? { minutes: 0, entryId: undefined } : cell
+            ),
+          }));
+        } else {
+          // Mettre à jour
+          await fetch(`/api/time-entries/${cellData.entryId}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ duration: cellData.minutes }),
+          });
+        }
+      } else if (cellData.minutes > 0) {
+        // Créer une nouvelle entrée
+        const response = await fetch("/api/time-entries", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            project_id: projectId,
+            date,
+            duration: cellData.minutes,
+            description: "",
+            billable: true,
+          }),
+        });
+
+        const result = await response.json();
+        if (response.ok && result.data) {
+          setTimeData((prev) => ({
+            ...prev,
+            [projectId]: prev[projectId].map((cell, i) =>
+              i === dayIndex ? { ...cell, entryId: result.data.id } : cell
+            ),
+          }));
+        }
+      }
+    } catch (error) {
+      console.error("Erreur sauvegarde:", error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleQuickAdd = async (minutes: number) => {
+    if (!selectedProjectId) return;
+
+    const todayIndex = new Date().getDay();
+    const dayIndex = todayIndex === 0 ? 6 : todayIndex - 1;
+    const date = weekDates[dayIndex]?.toISOString().split("T")[0];
+    if (!date) return;
+
+    const currentCell = timeData[selectedProjectId]?.[dayIndex];
+    const newMinutes = (currentCell?.minutes || 0) + minutes;
+
+    // Mettre à jour l'UI
+    setTimeData((prev) => ({
+      ...prev,
+      [selectedProjectId]: prev[selectedProjectId]?.map((cell, i) =>
+        i === dayIndex ? { ...cell, minutes: newMinutes } : cell
+      ) || Array(7).fill(null).map(() => ({ minutes: 0 })),
+    }));
+
+    setSaving(true);
+
+    try {
+      if (currentCell?.entryId) {
+        await fetch(`/api/time-entries/${currentCell.entryId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ duration: newMinutes }),
+        });
+      } else {
+        const response = await fetch("/api/time-entries", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            project_id: selectedProjectId,
+            date,
+            duration: newMinutes,
+            description: "",
+            billable: true,
+          }),
+        });
+
+        const result = await response.json();
+        if (response.ok && result.data) {
+          setTimeData((prev) => ({
+            ...prev,
+            [selectedProjectId]: prev[selectedProjectId].map((cell, i) =>
+              i === dayIndex ? { ...cell, entryId: result.data.id } : cell
+            ),
+          }));
+        }
+      }
+    } catch (error) {
+      console.error("Erreur quick add:", error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleTimerStop = async () => {
+    if (!isTimerRunning || timerSeconds < 60) {
+      setIsTimerRunning(false);
+      setTimerSeconds(0);
+      return;
+    }
+
+    const minutes = Math.round(timerSeconds / 60);
+    const todayIndex = new Date().getDay();
+    const dayIndex = todayIndex === 0 ? 6 : todayIndex - 1;
+    const date = weekDates[dayIndex]?.toISOString().split("T")[0];
+
+    if (selectedProjectId && date) {
+      setSaving(true);
+      try {
+        await fetch("/api/time-entries", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            project_id: selectedProjectId,
+            date,
+            duration: minutes,
+            description: description || null,
+            billable: true,
+          }),
+        });
+        await loadTimeEntries();
+      } catch (error) {
+        console.error("Erreur timer save:", error);
+      } finally {
+        setSaving(false);
+      }
+    }
+
+    setIsTimerRunning(false);
+    setTimerSeconds(0);
+    setDescription("");
   };
 
   const formatCellValue = (minutes: number) => {
@@ -77,25 +345,32 @@ export default function TimesheetPage() {
   };
 
   const getRowTotal = (projectId: string) => {
-    return timeData[projectId]?.reduce((sum, m) => sum + m, 0) || 0;
+    return (
+      timeData[projectId]?.reduce((sum, cell) => sum + cell.minutes, 0) || 0
+    );
   };
 
   const getDayTotal = (dayIndex: number) => {
     return Object.values(timeData).reduce(
-      (sum, row) => sum + (row[dayIndex] || 0),
+      (sum, row) => sum + (row[dayIndex]?.minutes || 0),
       0
     );
   };
 
   const getWeekTotal = () => {
     return Object.values(timeData).reduce(
-      (sum, row) => sum + row.reduce((s, m) => s + m, 0),
+      (sum, row) => sum + row.reduce((s, cell) => s + cell.minutes, 0),
       0
     );
   };
 
   const today = new Date().getDay();
   const todayIndex = today === 0 ? 6 : today - 1;
+
+  // Filtrer les projets qui ont des entrées ou qui sont actifs
+  const visibleProjects = projects.filter(
+    (p) => timeData[p.id]?.some((cell) => cell.minutes > 0) || true
+  );
 
   return (
     <div className="animate-fade-in">
@@ -110,13 +385,30 @@ export default function TimesheetPage() {
               placeholder="Sur quoi travaillez-vous ?"
               className="w-full bg-transparent border-none text-lg text-white placeholder-slate-500 focus:ring-0 focus:outline-none"
             />
-            <div className="flex gap-2 mt-2">
-              <span className="text-xs text-primary-400 bg-primary-500/10 px-2 py-0.5 rounded cursor-pointer hover:bg-primary-500/20 transition-colors">
-                #Client A
-              </span>
-              <span className="text-xs text-slate-400 border border-white/10 px-2 py-0.5 rounded cursor-pointer hover:bg-white/5 transition-colors">
-                + Projet
-              </span>
+            <div className="flex gap-2 mt-2 flex-wrap">
+              {projects.slice(0, 3).map((project) => (
+                <span
+                  key={project.id}
+                  onClick={() => setSelectedProjectId(project.id)}
+                  className={`text-xs px-2 py-0.5 rounded cursor-pointer transition-colors ${
+                    selectedProjectId === project.id
+                      ? "text-primary-400 bg-primary-500/20"
+                      : "text-slate-400 border border-white/10 hover:bg-white/5"
+                  }`}
+                  style={
+                    selectedProjectId === project.id
+                      ? { borderColor: project.color + "40" }
+                      : {}
+                  }
+                >
+                  #{project.name}
+                </span>
+              ))}
+              {projects.length > 3 && (
+                <span className="text-xs text-slate-400 border border-white/10 px-2 py-0.5 rounded cursor-pointer hover:bg-white/5 transition-colors">
+                  +{projects.length - 3} projets
+                </span>
+              )}
             </div>
           </div>
           <div className="flex items-center gap-3">
@@ -124,7 +416,9 @@ export default function TimesheetPage() {
               {formatTime(timerSeconds)}
             </div>
             <button
-              onClick={() => setIsTimerRunning(!isTimerRunning)}
+              onClick={() =>
+                isTimerRunning ? handleTimerStop() : setIsTimerRunning(true)
+              }
               className={`w-10 h-10 rounded-full text-white flex items-center justify-center shadow-lg transition-all active:scale-95 ${
                 isTimerRunning
                   ? "bg-red-600 hover:bg-red-500 shadow-red-500/30"
@@ -134,9 +428,7 @@ export default function TimesheetPage() {
               <Play
                 className={`w-5 h-5 ${isTimerRunning ? "hidden" : "ml-0.5"} fill-current`}
               />
-              {isTimerRunning && (
-                <div className="w-3 h-3 bg-white rounded-sm" />
-              )}
+              {isTimerRunning && <div className="w-3 h-3 bg-white rounded-sm" />}
             </button>
           </div>
         </div>
@@ -168,7 +460,10 @@ export default function TimesheetPage() {
           </button>
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-center">
+          {saving && (
+            <Loader2 className="w-4 h-4 text-primary-400 animate-spin" />
+          )}
           <button
             onClick={() => handleQuickAdd(15)}
             className="text-xs bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 px-3 py-2 rounded-md transition-colors"
@@ -196,107 +491,130 @@ export default function TimesheetPage() {
 
       {/* Timesheet Grid */}
       <GlassCard className="p-0 overflow-hidden border border-white/5">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-surfaceHighlight/50 border-b border-white/5 text-slate-400 text-xs font-medium">
-                <th className="p-4 w-64 border-r border-white/5">Projet</th>
-                {DAYS.map((day, i) => (
-                  <th
-                    key={day}
-                    className={`p-3 w-24 text-center border-r border-white/5 ${
-                      i === todayIndex
-                        ? "bg-primary-500/5 text-primary-300"
-                        : i >= 5
-                          ? "text-slate-600"
-                          : ""
-                    }`}
-                  >
-                    {day}{" "}
-                    {weekDates[i]?.toLocaleDateString("fr-FR", {
-                      day: "numeric",
-                    })}
+        {loading ? (
+          <div className="flex items-center justify-center py-20">
+            <Loader2 className="w-8 h-8 text-primary-400 animate-spin" />
+            <span className="ml-3 text-slate-400">Chargement...</span>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-surfaceHighlight/50 border-b border-white/5 text-slate-400 text-xs font-medium">
+                  <th className="p-4 w-64 border-r border-white/5">Projet</th>
+                  {DAYS.map((day, i) => (
+                    <th
+                      key={day}
+                      className={`p-3 w-24 text-center border-r border-white/5 ${
+                        i === todayIndex
+                          ? "bg-primary-500/5 text-primary-300"
+                          : i >= 5
+                            ? "text-slate-600"
+                            : ""
+                      }`}
+                    >
+                      {day}{" "}
+                      {weekDates[i]?.toLocaleDateString("fr-FR", {
+                        day: "numeric",
+                      })}
+                    </th>
+                  ))}
+                  <th className="p-3 w-24 text-center text-slate-200 font-bold">
+                    Total
                   </th>
-                ))}
-                <th className="p-3 w-24 text-center text-slate-200 font-bold">
-                  Total
-                </th>
-              </tr>
-            </thead>
-            <tbody className="text-sm divide-y divide-white/5">
-              {projects.map((project) => (
-                <tr
-                  key={project.id}
-                  className="group hover:bg-white/5 transition-colors"
-                >
-                  <td className="p-4 border-r border-white/5">
-                    <div className="flex flex-col justify-center h-12">
-                      <span className="font-medium text-white">
-                        {project.name}
-                      </span>
-                      <span className="text-[10px] text-slate-500">
-                        {project.task}
-                      </span>
-                    </div>
+                </tr>
+              </thead>
+              <tbody className="text-sm divide-y divide-white/5">
+                {visibleProjects.length === 0 ? (
+                  <tr>
+                    <td colSpan={9} className="p-8 text-center text-slate-500">
+                      Aucun projet actif. Créez un projet pour commencer à saisir vos temps.
+                    </td>
+                  </tr>
+                ) : (
+                  visibleProjects.map((project) => (
+                    <tr
+                      key={project.id}
+                      className="group hover:bg-white/5 transition-colors"
+                    >
+                      <td className="p-4 border-r border-white/5">
+                        <div className="flex flex-col justify-center h-12">
+                          <div className="flex items-center gap-2">
+                            <div
+                              className="w-2 h-2 rounded-full"
+                              style={{ backgroundColor: project.color }}
+                            />
+                            <span className="font-medium text-white">
+                              {project.name}
+                            </span>
+                          </div>
+                          {project.description && (
+                            <span className="text-[10px] text-slate-500 ml-4">
+                              {project.description}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      {DAYS.map((_, dayIndex) => (
+                        <td
+                          key={dayIndex}
+                          className={`p-0 border-r border-white/5 ${
+                            dayIndex === todayIndex ? "bg-primary-500/5" : ""
+                          } ${dayIndex >= 5 ? "bg-surface/50" : ""}`}
+                        >
+                          <input
+                            type="text"
+                            value={formatCellValue(
+                              timeData[project.id]?.[dayIndex]?.minutes || 0
+                            )}
+                            onChange={(e) =>
+                              handleCellChange(project.id, dayIndex, e.target.value)
+                            }
+                            onBlur={() => handleCellBlur(project.id, dayIndex)}
+                            className={`w-full h-16 text-center bg-transparent border-none focus:ring-inset focus:ring-1 focus:ring-primary-500 focus:bg-primary-900/20 font-mono text-xs transition-colors ${
+                              dayIndex === todayIndex
+                                ? "text-white font-medium"
+                                : dayIndex >= 5
+                                  ? "text-slate-600"
+                                  : "text-slate-300"
+                            }`}
+                          />
+                        </td>
+                      ))}
+                      <td className="p-0 text-center font-mono font-medium text-white">
+                        {formatCellValue(getRowTotal(project.id))}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+              <tfoot className="bg-surfaceHighlight border-t border-white/10">
+                <tr className="font-medium text-white">
+                  <td className="p-4 text-right text-xs uppercase tracking-wider text-slate-400">
+                    Total Journalier
                   </td>
                   {DAYS.map((_, dayIndex) => (
                     <td
                       key={dayIndex}
-                      className={`p-0 border-r border-white/5 ${
-                        dayIndex === todayIndex ? "bg-primary-500/5" : ""
-                      } ${dayIndex >= 5 ? "bg-surface/50" : ""}`}
+                      className={`p-3 text-center font-mono text-xs ${
+                        dayIndex === todayIndex
+                          ? "text-primary-400"
+                          : dayIndex >= 5
+                            ? "text-slate-600"
+                            : ""
+                      }`}
                     >
-                      <input
-                        type="text"
-                        value={formatCellValue(
-                          timeData[project.id]?.[dayIndex] || 0
-                        )}
-                        onChange={(e) =>
-                          handleCellChange(project.id, dayIndex, e.target.value)
-                        }
-                        disabled={dayIndex >= 5}
-                        className={`w-full h-16 text-center bg-transparent border-none focus:ring-inset focus:ring-1 focus:ring-primary-500 focus:bg-primary-900/20 font-mono text-xs transition-colors ${
-                          dayIndex === todayIndex
-                            ? "text-white font-medium"
-                            : dayIndex >= 5
-                              ? "text-slate-600"
-                              : "text-slate-300"
-                        }`}
-                      />
+                      {formatCellValue(getDayTotal(dayIndex))}
                     </td>
                   ))}
-                  <td className="p-0 text-center font-mono font-medium text-white">
-                    {formatCellValue(getRowTotal(project.id))}
+                  <td className="p-3 text-center font-mono text-sm text-primary-400">
+                    {formatCellValue(getWeekTotal())}
                   </td>
                 </tr>
-              ))}
-            </tbody>
-            <tfoot className="bg-surfaceHighlight border-t border-white/10">
-              <tr className="font-medium text-white">
-                <td className="p-4 text-right text-xs uppercase tracking-wider text-slate-400">
-                  Total Journalier
-                </td>
-                {DAYS.map((_, dayIndex) => (
-                  <td
-                    key={dayIndex}
-                    className={`p-3 text-center font-mono text-xs ${
-                      dayIndex === todayIndex
-                        ? "text-primary-400"
-                        : dayIndex >= 5
-                          ? "text-slate-600"
-                          : ""
-                    }`}
-                  >
-                    {formatCellValue(getDayTotal(dayIndex))}
-                  </td>
-                ))}
-                <td className="p-3 text-center font-mono text-sm text-primary-400">
-                  {formatCellValue(getWeekTotal())}
-                </td>
-              </tr>
-            </tfoot>
-          </table>
-        </div>
+              </tfoot>
+            </table>
+          </div>
+        )}
       </GlassCard>
     </div>
   );
