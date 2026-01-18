@@ -1,48 +1,56 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   Plus,
   ChevronDown,
   ChevronRight,
-  Briefcase,
-  Smartphone,
+  Folder,
   MoreHorizontal,
+  Loader2,
+  AlertCircle,
+  RefreshCw,
 } from "lucide-react";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Badge } from "@/components/ui/badge";
+import { Project } from "@/lib/types";
 
-// Mock data
-const projectsData = [
-  {
-    id: "1",
-    name: "Client ABC Corp",
-    description: "Refonte Site Web",
-    color: "#8b5cf6",
-    icon: Briefcase,
-    hoursSpent: 75,
-    budgetHours: 100,
-    status: "ACTIVE" as const,
-    children: [
-      { id: "1-1", name: "Phase 1: Design", hours: "30:00", budget: "40h" },
-      { id: "1-2", name: "Phase 2: Développement", hours: "45:00", budget: "60h" },
-    ],
-  },
-  {
-    id: "2",
-    name: "Mobile App",
-    description: "iOS & Android",
-    color: "#ec4899",
-    icon: Smartphone,
-    hoursSpent: 12,
-    budgetHours: 200,
-    status: "PAUSED" as const,
-    children: [],
-  },
-];
+interface ProjectWithChildren extends Project {
+  children: ProjectWithChildren[];
+}
 
 export default function ProjectsPage() {
-  const [expandedProjects, setExpandedProjects] = useState<string[]>(["1"]);
+  const [projects, setProjects] = useState<ProjectWithChildren[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [expandedProjects, setExpandedProjects] = useState<string[]>([]);
+
+  const fetchProjects = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await fetch("/api/projects");
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "Erreur lors du chargement des projets");
+      }
+
+      setProjects(result.data || []);
+      // Expand first project by default if exists
+      if (result.data?.length > 0) {
+        setExpandedProjects([result.data[0].id]);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Une erreur est survenue");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchProjects();
+  }, [fetchProjects]);
 
   const toggleProject = (projectId: string) => {
     setExpandedProjects((prev) =>
@@ -57,13 +65,82 @@ export default function ProjectsPage() {
       case "ACTIVE":
         return <Badge variant="success">ACTIF</Badge>;
       case "PAUSED":
-        return <Badge variant="warning">PAUSÉ</Badge>;
+        return <Badge variant="warning">PAUSE</Badge>;
       case "COMPLETED":
-        return <Badge variant="info">TERMINÉ</Badge>;
+        return <Badge variant="info">TERMINE</Badge>;
       default:
-        return <Badge>ARCHIVÉ</Badge>;
+        return <Badge>ARCHIVE</Badge>;
     }
   };
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="animate-fade-in">
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-2xl font-medium tracking-tight text-white">
+            Projets
+          </h2>
+        </div>
+        <GlassCard className="p-12 flex items-center justify-center">
+          <Loader2 className="w-8 h-8 text-primary-500 animate-spin" />
+          <span className="ml-3 text-slate-400">Chargement des projets...</span>
+        </GlassCard>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="animate-fade-in">
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-2xl font-medium tracking-tight text-white">
+            Projets
+          </h2>
+        </div>
+        <GlassCard className="p-12 flex flex-col items-center justify-center">
+          <AlertCircle className="w-12 h-12 text-red-400 mb-4" />
+          <p className="text-slate-300 mb-4">{error}</p>
+          <button
+            onClick={fetchProjects}
+            className="flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-500 text-white rounded-lg transition-colors"
+          >
+            <RefreshCw className="w-4 h-4" />
+            Reessayer
+          </button>
+        </GlassCard>
+      </div>
+    );
+  }
+
+  // Empty state
+  if (projects.length === 0) {
+    return (
+      <div className="animate-fade-in">
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-2xl font-medium tracking-tight text-white">
+            Projets
+          </h2>
+          <button className="bg-primary-600 hover:bg-primary-500 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center transition-colors shadow-lg shadow-primary-500/20">
+            <Plus className="w-4 h-4 mr-2" />
+            Nouveau Projet
+          </button>
+        </div>
+        <GlassCard className="p-12 flex flex-col items-center justify-center">
+          <Folder className="w-16 h-16 text-slate-600 mb-4" />
+          <h3 className="text-lg font-medium text-white mb-2">Aucun projet</h3>
+          <p className="text-slate-400 text-center mb-6">
+            Creez votre premier projet pour commencer a suivre votre temps.
+          </p>
+          <button className="flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-500 text-white rounded-lg transition-colors">
+            <Plus className="w-4 h-4" />
+            Creer un projet
+          </button>
+        </GlassCard>
+      </div>
+    );
+  }
 
   return (
     <div className="animate-fade-in">
@@ -89,20 +166,21 @@ export default function ProjectsPage() {
         </div>
 
         {/* Projects */}
-        {projectsData.map((project) => {
+        {projects.map((project) => {
           const isExpanded = expandedProjects.includes(project.id);
-          const Icon = project.icon;
-          const progress = (project.hoursSpent / project.budgetHours) * 100;
+          const hasChildren = project.children && project.children.length > 0;
 
           return (
             <div key={project.id} className="border-b border-white/5">
               {/* Main Project Row */}
               <div
                 className="flex items-center p-4 hover:bg-white/5 cursor-pointer group transition-colors"
-                onClick={() => toggleProject(project.id)}
+                onClick={() => hasChildren && toggleProject(project.id)}
               >
                 <div className="flex-1 flex items-center gap-3">
-                  <button className="text-slate-500 hover:text-white">
+                  <button
+                    className={`text-slate-500 hover:text-white ${!hasChildren ? 'invisible' : ''}`}
+                  >
                     {isExpanded ? (
                       <ChevronDown className="w-4 h-4" />
                     ) : (
@@ -116,32 +194,40 @@ export default function ProjectsPage() {
                       color: project.color,
                     }}
                   >
-                    <Icon className="w-4 h-4" />
+                    <Folder className="w-4 h-4" />
                   </div>
                   <div>
                     <h3 className="text-sm font-medium text-white">
                       {project.name}
                     </h3>
-                    <p className="text-xs text-slate-500">
-                      {project.description}
-                    </p>
+                    {project.description && (
+                      <p className="text-xs text-slate-500">
+                        {project.description}
+                      </p>
+                    )}
                   </div>
                 </div>
 
                 <div className="w-32 px-4">
-                  <div className="flex justify-between text-[10px] text-slate-400 mb-1">
-                    <span>{project.hoursSpent}h</span>
-                    <span>{project.budgetHours}h</span>
-                  </div>
-                  <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
-                    <div
-                      className="h-full rounded-full"
-                      style={{
-                        width: `${Math.min(progress, 100)}%`,
-                        backgroundColor: project.color,
-                      }}
-                    />
-                  </div>
+                  {project.budget ? (
+                    <>
+                      <div className="flex justify-between text-[10px] text-slate-400 mb-1">
+                        <span>0h</span>
+                        <span>{project.budget}h</span>
+                      </div>
+                      <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
+                        <div
+                          className="h-full rounded-full"
+                          style={{
+                            width: "0%",
+                            backgroundColor: project.color,
+                          }}
+                        />
+                      </div>
+                    </>
+                  ) : (
+                    <span className="text-xs text-slate-500">Non defini</span>
+                  )}
                 </div>
 
                 <div className="w-32 text-center">
@@ -159,7 +245,7 @@ export default function ProjectsPage() {
               </div>
 
               {/* Sub Projects */}
-              {isExpanded && project.children.length > 0 && (
+              {isExpanded && hasChildren && (
                 <div className="bg-surface/50 pl-12 border-t border-white/5">
                   {project.children.map((child) => (
                     <div
@@ -173,9 +259,11 @@ export default function ProjectsPage() {
                         </span>
                       </div>
                       <div className="w-32 px-4 text-right text-xs text-slate-400 font-mono">
-                        {child.hours} / {child.budget}
+                        {child.budget ? `${child.budget}h` : "-"}
                       </div>
-                      <div className="w-32 text-center"></div>
+                      <div className="w-32 text-center">
+                        {getStatusBadge(child.status)}
+                      </div>
                       <div className="w-16"></div>
                     </div>
                   ))}
