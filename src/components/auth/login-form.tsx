@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { signIn } from "next-auth/react";
 import { Clock } from "lucide-react";
 
 export function LoginForm() {
@@ -13,20 +13,9 @@ export function LoginForm() {
     setError(null);
 
     try {
-      const supabase = createClient();
-
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: "azure",
-        options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
-          scopes: "email profile openid",
-        },
+      await signIn("microsoft-entra-id", {
+        callbackUrl: "/dashboard",
       });
-
-      if (error) {
-        setError(error.message);
-        setIsLoading(false);
-      }
     } catch {
       setError("Une erreur est survenue");
       setIsLoading(false);

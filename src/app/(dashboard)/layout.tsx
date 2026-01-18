@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { auth } from "@/auth";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
 import { DashboardClient } from "@/components/layout/dashboard-client";
@@ -9,21 +9,23 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const session = await auth();
 
-  if (!user) {
+  if (!session?.user) {
     redirect("/login");
   }
 
-  // Fetch user profile
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("id", user.id)
-    .single();
+  // Create profile object from NextAuth session
+  const profile = {
+    id: session.user.id || session.user.email || "unknown",
+    email: session.user.email || "",
+    name: session.user.name || "User",
+    avatar_url: session.user.image || null,
+    role: "ADMIN" as const,
+    group_id: null,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
 
   return (
     <DashboardClient>

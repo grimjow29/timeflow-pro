@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Plus_Jakarta_Sans, JetBrains_Mono } from "next/font/google";
+import { SessionProvider } from "@/components/providers/session-provider";
 import "./globals.css";
 
 const jakarta = Plus_Jakarta_Sans({
@@ -38,7 +39,7 @@ export default function RootLayout({
       <body
         className={`${jakarta.variable} ${jetbrains.variable} antialiased bg-background text-slate-200 overflow-hidden h-screen`}
       >
-        {children}
+        <SessionProvider>{children}</SessionProvider>
       </body>
     </html>
   );
