@@ -1,18 +1,13 @@
-import { getAuthUser, getSupabaseClient } from "@/lib/auth-helper";
+import { getAuthUser } from "@/lib/auth-helper";
 import { NextRequest, NextResponse } from "next/server";
 import { CreateGroupInput } from "@/lib/types";
+import { MOCK_GROUPS, MOCK_USERS } from "@/lib/mock-data";
 
 /**
  * GET /api/groups
- * Liste tous les groupes
- * Query params:
- * - include_members: inclure les membres du groupe (optionnel)
  */
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await getSupabaseClient();
-
-    // Vérifier l'authentification
     const { user, error: authError } = await getAuthUser();
 
     if (authError || !user) {
@@ -22,36 +17,30 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Récupérer les paramètres de query
     const searchParams = request.nextUrl.searchParams;
     const includeMembers = searchParams.get("include_members") === "true";
 
-    // Construire la requête
-    let selectQuery = `
-      *,
-      manager:profiles!groups_manager_id_fkey(id, name, email, avatar_url)
-    `;
+    const groups = MOCK_GROUPS.map(g => {
+      const manager = MOCK_USERS.find(u => u.id === g.manager_id);
+      const result: any = {
+        ...g,
+        manager: manager ? { id: manager.id, name: manager.name, email: manager.email, avatar_url: manager.avatar_url } : null,
+      };
 
-    if (includeMembers) {
-      selectQuery += `,
-        members:profiles!profiles_group_id_fkey(id, name, email, avatar_url, role)
-      `;
-    }
+      if (includeMembers) {
+        result.members = MOCK_USERS.filter(u => u.group_id === g.id).map(u => ({
+          id: u.id,
+          name: u.name,
+          email: u.email,
+          avatar_url: u.avatar_url,
+          role: u.role,
+        }));
+      }
 
-    const { data, error } = await supabase
-      .from("groups")
-      .select(selectQuery)
-      .order("name", { ascending: true });
+      return result;
+    });
 
-    if (error) {
-      console.error("Erreur récupération groups:", error);
-      return NextResponse.json(
-        { error: "Erreur lors de la récupération des groupes" },
-        { status: 500 }
-      );
-    }
-
-    return NextResponse.json({ data });
+    return NextResponse.json({ data: groups });
   } catch (error) {
     console.error("Erreur serveur:", error);
     return NextResponse.json(
@@ -63,13 +52,9 @@ export async function GET(request: NextRequest) {
 
 /**
  * POST /api/groups
- * Crée un nouveau groupe
  */
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await getSupabaseClient();
-
-    // Vérifier l'authentification
     const { user, error: authError } = await getAuthUser();
 
     if (authError || !user) {
@@ -79,24 +64,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Vérifier que l'utilisateur est admin
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .single();
-
-    if (profile?.role !== "ADMIN") {
-      return NextResponse.json(
-        { error: "Permission refusée. Seuls les admins peuvent créer des groupes." },
-        { status: 403 }
-      );
-    }
-
-    // Parser le body
     const body: CreateGroupInput = await request.json();
 
-    // Validation des champs requis
     if (!body.name || body.name.trim() === "") {
       return NextResponse.json(
         { error: "Le nom du groupe est requis" },
@@ -104,34 +73,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Créer le groupe
-    const { data, error } = await supabase
-      .from("groups")
-      .insert({
-        name: body.name.trim(),
-        manager_id: body.manager_id || null,
-      })
-      .select(`
-        *,
-        manager:profiles!groups_manager_id_fkey(id, name, email, avatar_url)
-      `)
-      .single();
+    const newGroup = {
+      id: `group-${Date.now()}`,
+      name: body.name.trim(),
+      manager_id: body.manager_id || null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      manager: null,
+    };
 
-    if (error) {
-      console.error("Erreur création group:", error);
-      if (error.code === "23505") {
-        return NextResponse.json(
-          { error: "Un groupe avec ce nom existe déjà" },
-          { status: 409 }
-        );
-      }
-      return NextResponse.json(
-        { error: "Erreur lors de la création du groupe" },
-        { status: 500 }
-      );
-    }
-
-    return NextResponse.json({ data }, { status: 201 });
+    return NextResponse.json({ data: newGroup }, { status: 201 });
   } catch (error) {
     console.error("Erreur serveur:", error);
     return NextResponse.json(

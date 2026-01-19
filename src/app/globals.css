@@ -47,11 +47,57 @@
   }
 }
 
-/* Base Styles */
+/* Base Styles - Dark Mode (default) */
+:root {
+  --bg-primary: #0f0a1a;
+  --bg-surface: #1a1225;
+  --bg-surface-highlight: #251838;
+  --text-primary: #e2e8f0;
+  --text-secondary: #94a3b8;
+  --border-color: rgba(255, 255, 255, 0.05);
+}
+
+/* Light Mode */
+:root.light {
+  --bg-primary: #f8fafc;
+  --bg-surface: #ffffff;
+  --bg-surface-highlight: #f1f5f9;
+  --text-primary: #1e293b;
+  --text-secondary: #64748b;
+  --border-color: rgba(0, 0, 0, 0.1);
+}
+
 body {
-  background-color: #0f0a1a;
-  color: #e2e8f0;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
   font-family: var(--font-jakarta), system-ui, sans-serif;
+}
+
+/* Light mode overrides */
+.light .glass-panel {
+  background: rgba(255, 255, 255, 0.8);
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+.light .glass-card {
+  background: linear-gradient(
+    145deg,
+    rgba(255, 255, 255, 0.9) 0%,
+    rgba(248, 250, 252, 0.9) 100%
+  );
+  border-color: rgba(139, 92, 246, 0.2);
+}
+
+.light ::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+.light ::-webkit-scrollbar-thumb {
+  background: #c4b5fd;
+}
+
+.light ::-webkit-scrollbar-thumb:hover {
+  background: #a78bfa;
 }
 
 /* Selection */

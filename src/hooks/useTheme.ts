@@ -33,6 +33,15 @@ function applyTheme(resolvedTheme: 'dark' | 'light') {
   root.classList.remove('dark', 'light');
   root.classList.add(resolvedTheme);
 
+  // Also update body background for immediate visual feedback
+  if (resolvedTheme === 'light') {
+    document.body.style.backgroundColor = '#f8fafc';
+    document.body.style.color = '#1e293b';
+  } else {
+    document.body.style.backgroundColor = '#0f0a1a';
+    document.body.style.color = '#e2e8f0';
+  }
+
   // Update meta theme-color
   const metaThemeColor = document.querySelector('meta[name="theme-color"]');
   if (metaThemeColor) {

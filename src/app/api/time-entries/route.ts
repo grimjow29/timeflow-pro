@@ -1,20 +1,14 @@
-import { getAuthUser, getSupabaseClient } from "@/lib/auth-helper";
+import { getAuthUser } from "@/lib/auth-helper";
 import { NextRequest, NextResponse } from "next/server";
 import { CreateTimeEntryInput } from "@/lib/types";
+import { getMockTimeEntries, addSessionTimeEntry, getSessionTimeEntries, MOCK_PROJECTS } from "@/lib/mock-data";
 
 /**
  * GET /api/time-entries
  * Liste les entrées de temps pour l'utilisateur connecté
- * Query params:
- * - week_start: date de début de semaine (YYYY-MM-DD)
- * - week_end: date de fin de semaine (YYYY-MM-DD)
- * - project_id: filtrer par projet (optionnel)
  */
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await getSupabaseClient();
-
-    // Vérifier l'authentification
     const { user, error: authError } = await getAuthUser();
 
     if (authError || !user) {
@@ -24,43 +18,27 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Récupérer les paramètres de query
     const searchParams = request.nextUrl.searchParams;
     const weekStart = searchParams.get("week_start");
     const weekEnd = searchParams.get("week_end");
     const projectId = searchParams.get("project_id");
 
-    // Construire la requête
-    let query = supabase
-      .from("time_entries")
-      .select(`
-        *,
-        project:projects(id, name, color)
-      `)
-      .eq("user_id", user.id)
-      .order("date", { ascending: true });
+    let entries = [
+      ...getMockTimeEntries(user.id, weekStart || undefined, weekEnd || undefined),
+      ...getSessionTimeEntries().filter(e => e.user_id === user.id),
+    ];
 
-    // Filtrer par semaine si spécifié
     if (weekStart && weekEnd) {
-      query = query.gte("date", weekStart).lte("date", weekEnd);
+      entries = entries.filter(e => e.date >= weekStart && e.date <= weekEnd);
     }
 
-    // Filtrer par projet si spécifié
     if (projectId) {
-      query = query.eq("project_id", projectId);
+      entries = entries.filter(e => e.project_id === projectId);
     }
 
-    const { data, error } = await query;
+    entries.sort((a, b) => a.date.localeCompare(b.date));
 
-    if (error) {
-      console.error("Erreur récupération time entries:", error);
-      return NextResponse.json(
-        { error: "Erreur lors de la récupération des entrées" },
-        { status: 500 }
-      );
-    }
-
-    return NextResponse.json({ data });
+    return NextResponse.json({ data: entries });
   } catch (error) {
     console.error("Erreur serveur:", error);
     return NextResponse.json(
@@ -76,9 +54,6 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await getSupabaseClient();
-
-    // Vérifier l'authentification
     const { user, error: authError } = await getAuthUser();
 
     if (authError || !user) {
@@ -88,10 +63,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Parser le body
     const body: CreateTimeEntryInput = await request.json();
 
-    // Validation des champs requis
     if (!body.project_id || !body.date || body.duration === undefined) {
       return NextResponse.json(
         { error: "Champs requis manquants: project_id, date, duration" },
@@ -99,7 +72,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Valider la durée (positive et raisonnable)
     if (body.duration < 0 || body.duration > 1440) {
       return NextResponse.json(
         { error: "Durée invalide (doit être entre 0 et 1440 minutes)" },
@@ -107,32 +79,31 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Créer l'entrée
-    const { data, error } = await supabase
-      .from("time_entries")
-      .insert({
-        user_id: user.id,
-        project_id: body.project_id,
-        date: body.date,
-        duration: body.duration,
-        description: body.description || null,
-        billable: body.billable ?? true,
-      })
-      .select(`
-        *,
-        project:projects(id, name, color)
-      `)
-      .single();
+    const project = MOCK_PROJECTS.find(p => p.id === body.project_id) ||
+                    MOCK_PROJECTS.flatMap(p => p.children || []).find(p => p.id === body.project_id);
 
-    if (error) {
-      console.error("Erreur création time entry:", error);
-      return NextResponse.json(
-        { error: "Erreur lors de la création de l'entrée" },
-        { status: 500 }
-      );
-    }
+    const newEntry = {
+      id: `entry-${Date.now()}`,
+      user_id: user.id,
+      project_id: body.project_id,
+      date: body.date,
+      duration: body.duration,
+      description: body.description || null,
+      billable: body.billable ?? true,
+      tags: [],
+      timesheet_id: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      project: project ? {
+        id: project.id,
+        name: project.name,
+        color: project.color,
+      } : null,
+    };
 
-    return NextResponse.json({ data }, { status: 201 });
+    addSessionTimeEntry(newEntry);
+
+    return NextResponse.json({ data: newEntry }, { status: 201 });
   } catch (error) {
     console.error("Erreur serveur:", error);
     return NextResponse.json(

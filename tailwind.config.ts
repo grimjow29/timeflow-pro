@@ -14,9 +14,9 @@ const config: Config = {
         mono: ["var(--font-jetbrains)", "monospace"],
       },
       colors: {
-        background: "#0f0a1a",
-        surface: "#1a1225",
-        surfaceHighlight: "#251838",
+        background: "var(--bg-primary)",
+        surface: "var(--bg-surface)",
+        surfaceHighlight: "var(--bg-surface-highlight)",
         primary: {
           400: "#a78bfa",
           500: "#8b5cf6",

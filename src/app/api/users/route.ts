@@ -1,18 +1,13 @@
-import { getAuthUser, getSupabaseClient } from "@/lib/auth-helper";
+import { getAuthUser } from "@/lib/auth-helper";
 import { NextRequest, NextResponse } from "next/server";
+import { MOCK_USERS, MOCK_GROUPS } from "@/lib/mock-data";
 
 /**
  * GET /api/users
  * Liste les utilisateurs avec leurs groupes
- * Query params:
- * - group_id: filtrer par groupe (optionnel)
- * - role: filtrer par rôle (optionnel)
  */
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await getSupabaseClient();
-
-    // Vérifier l'authentification
     const { user, error: authError } = await getAuthUser();
 
     if (authError || !user) {
@@ -22,41 +17,24 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Récupérer les paramètres de query
     const searchParams = request.nextUrl.searchParams;
     const groupId = searchParams.get("group_id");
     const role = searchParams.get("role");
 
-    // Construire la requête
-    let query = supabase
-      .from("profiles")
-      .select(`
-        *,
-        group:groups(id, name)
-      `)
-      .order("name", { ascending: true });
+    let users = MOCK_USERS.map(u => ({
+      ...u,
+      group: MOCK_GROUPS.find(g => g.id === u.group_id) || null,
+    }));
 
-    // Filtrer par groupe si spécifié
     if (groupId) {
-      query = query.eq("group_id", groupId);
+      users = users.filter(u => u.group_id === groupId);
     }
 
-    // Filtrer par rôle si spécifié
     if (role) {
-      query = query.eq("role", role);
+      users = users.filter(u => u.role === role);
     }
 
-    const { data, error } = await query;
-
-    if (error) {
-      console.error("Erreur récupération users:", error);
-      return NextResponse.json(
-        { error: "Erreur lors de la récupération des utilisateurs" },
-        { status: 500 }
-      );
-    }
-
-    return NextResponse.json({ data });
+    return NextResponse.json({ data: users });
   } catch (error) {
     console.error("Erreur serveur:", error);
     return NextResponse.json(

@@ -1,5 +1,6 @@
-import { getAuthUser, getSupabaseClient } from "@/lib/auth-helper";
+import { getAuthUser } from "@/lib/auth-helper";
 import { NextRequest, NextResponse } from "next/server";
+import { getMockTimeEntries, MOCK_PROJECTS } from "@/lib/mock-data";
 import { startOfWeek, endOfWeek, startOfMonth, endOfMonth, subWeeks, subMonths, format, eachDayOfInterval, parseISO } from "date-fns";
 
 interface HoursPerDay {
@@ -23,15 +24,9 @@ interface AnalyticsResponse {
 
 /**
  * GET /api/analytics
- * Returns analytics data for the authenticated user
- * Query params:
- * - period: "week" | "month" (default: "week")
  */
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await getSupabaseClient();
-
-    // Verify authentication
     const { user, error: authError } = await getAuthUser();
 
     if (authError || !user) {
@@ -41,7 +36,6 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Get period parameter
     const searchParams = request.nextUrl.searchParams;
     const period = searchParams.get("period") || "week";
 
@@ -57,9 +51,8 @@ export async function GET(request: NextRequest) {
       prevStartDate = startOfMonth(subMonths(today, 1));
       prevEndDate = endOfMonth(subMonths(today, 1));
     } else {
-      // Default to week
-      startDate = startOfWeek(today, { weekStartsOn: 1 }); // Monday
-      endDate = endOfWeek(today, { weekStartsOn: 1 }); // Sunday
+      startDate = startOfWeek(today, { weekStartsOn: 1 });
+      endDate = endOfWeek(today, { weekStartsOn: 1 });
       prevStartDate = startOfWeek(subWeeks(today, 1), { weekStartsOn: 1 });
       prevEndDate = endOfWeek(subWeeks(today, 1), { weekStartsOn: 1 });
     }
@@ -69,48 +62,19 @@ export async function GET(request: NextRequest) {
     const prevStartStr = format(prevStartDate, "yyyy-MM-dd");
     const prevEndStr = format(prevEndDate, "yyyy-MM-dd");
 
-    // Fetch current period time entries
-    const { data: currentEntries, error: currentError } = await supabase
-      .from("time_entries")
-      .select(`
-        *,
-        project:projects(id, name, color)
-      `)
-      .eq("user_id", user.id)
-      .gte("date", startStr)
-      .lte("date", endStr);
-
-    if (currentError) {
-      console.error("Error fetching current entries:", currentError);
-      return NextResponse.json(
-        { error: "Erreur lors de la récupération des données" },
-        { status: 500 }
-      );
-    }
-
-    // Fetch previous period time entries for trend calculation
-    const { data: prevEntries, error: prevError } = await supabase
-      .from("time_entries")
-      .select("duration")
-      .eq("user_id", user.id)
-      .gte("date", prevStartStr)
-      .lte("date", prevEndStr);
-
-    if (prevError) {
-      console.error("Error fetching previous entries:", prevError);
-    }
+    // Get current period entries
+    const currentEntries = getMockTimeEntries(user.id, startStr, endStr);
+    const prevEntries = getMockTimeEntries(user.id, prevStartStr, prevEndStr);
 
     // Calculate hours per day
     const daysInPeriod = eachDayOfInterval({ start: startDate, end: endDate });
     const hoursPerDayMap = new Map<string, number>();
 
-    // Initialize all days with 0
     daysInPeriod.forEach((day) => {
       hoursPerDayMap.set(format(day, "yyyy-MM-dd"), 0);
     });
 
-    // Sum up hours per day
-    currentEntries?.forEach((entry) => {
+    currentEntries.forEach((entry) => {
       const dateKey = entry.date;
       const currentHours = hoursPerDayMap.get(dateKey) || 0;
       hoursPerDayMap.set(dateKey, currentHours + entry.duration / 60);
@@ -125,13 +89,12 @@ export async function GET(request: NextRequest) {
     // Calculate hours per project
     const hoursPerProjectMap = new Map<string, { hours: number; color: string }>();
 
-    currentEntries?.forEach((entry) => {
-      const projectName = entry.project?.name || "Sans projet";
-      const projectColor = entry.project?.color || "#8b5cf6";
-      const current = hoursPerProjectMap.get(projectName) || { hours: 0, color: projectColor };
-      hoursPerProjectMap.set(projectName, {
+    currentEntries.forEach((entry) => {
+      const project = entry.project || { name: "Sans projet", color: "#8b5cf6" };
+      const current = hoursPerProjectMap.get(project.name) || { hours: 0, color: project.color };
+      hoursPerProjectMap.set(project.name, {
         hours: current.hours + entry.duration / 60,
-        color: projectColor,
+        color: project.color,
       });
     });
 
@@ -144,14 +107,14 @@ export async function GET(request: NextRequest) {
       .sort((a, b) => b.hours - a.hours);
 
     // Calculate totals
-    const totalMinutes = currentEntries?.reduce((sum, entry) => sum + entry.duration, 0) || 0;
+    const totalMinutes = currentEntries.reduce((sum, entry) => sum + entry.duration, 0);
     const totalHours = Math.round((totalMinutes / 60) * 100) / 100;
 
     const numDays = daysInPeriod.length;
     const avgHoursPerDay = Math.round((totalHours / numDays) * 100) / 100;
 
     // Calculate trend
-    const prevTotalMinutes = prevEntries?.reduce((sum, entry) => sum + entry.duration, 0) || 0;
+    const prevTotalMinutes = prevEntries.reduce((sum, entry) => sum + entry.duration, 0);
     const prevTotalHours = prevTotalMinutes / 60;
 
     let trend = 0;
