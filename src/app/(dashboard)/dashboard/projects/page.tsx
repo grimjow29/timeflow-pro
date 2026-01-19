@@ -13,7 +13,9 @@ import {
 } from "lucide-react";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Badge } from "@/components/ui/badge";
-import { Project } from "@/lib/types";
+import { Modal } from "@/components/ui/modal";
+import { ProjectForm } from "@/components/forms/project-form";
+import { Project, CreateProjectInput } from "@/lib/types";
 
 interface ProjectWithChildren extends Project {
   children: ProjectWithChildren[];
@@ -24,6 +26,7 @@ export default function ProjectsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expandedProjects, setExpandedProjects] = useState<string[]>([]);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const fetchProjects = useCallback(async () => {
     try {
@@ -70,6 +73,33 @@ export default function ProjectsPage() {
         return <Badge variant="info">TERMINE</Badge>;
       default:
         return <Badge>ARCHIVE</Badge>;
+    }
+  };
+
+  const handleCreateProject = async (data: CreateProjectInput) => {
+    try {
+      const response = await fetch("/api/projects", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "Erreur lors de la création du projet");
+      }
+
+      // Refresh projects list
+      await fetchProjects();
+
+      // Close modal
+      setIsModalOpen(false);
+    } catch (err) {
+      console.error("Error creating project:", err);
+      throw err;
     }
   };
 
@@ -122,7 +152,10 @@ export default function ProjectsPage() {
           <h2 className="text-2xl font-medium tracking-tight text-white">
             Projets
           </h2>
-          <button className="bg-primary-600 hover:bg-primary-500 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center transition-colors shadow-lg shadow-primary-500/20">
+          <button
+            onClick={() => setIsModalOpen(true)}
+            className="bg-primary-600 hover:bg-primary-500 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center transition-colors shadow-lg shadow-primary-500/20"
+          >
             <Plus className="w-4 h-4 mr-2" />
             Nouveau Projet
           </button>
@@ -133,11 +166,26 @@ export default function ProjectsPage() {
           <p className="text-slate-400 text-center mb-6">
             Creez votre premier projet pour commencer a suivre votre temps.
           </p>
-          <button className="flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-500 text-white rounded-lg transition-colors">
+          <button
+            onClick={() => setIsModalOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-500 text-white rounded-lg transition-colors"
+          >
             <Plus className="w-4 h-4" />
             Creer un projet
           </button>
         </GlassCard>
+
+        <Modal
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          title="Nouveau Projet"
+        >
+          <ProjectForm
+            onSubmit={handleCreateProject}
+            onCancel={() => setIsModalOpen(false)}
+            projects={projects}
+          />
+        </Modal>
       </div>
     );
   }
@@ -149,7 +197,10 @@ export default function ProjectsPage() {
         <h2 className="text-2xl font-medium tracking-tight text-white">
           Projets
         </h2>
-        <button className="bg-primary-600 hover:bg-primary-500 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center transition-colors shadow-lg shadow-primary-500/20">
+        <button
+          onClick={() => setIsModalOpen(true)}
+          className="bg-primary-600 hover:bg-primary-500 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center transition-colors shadow-lg shadow-primary-500/20"
+        >
           <Plus className="w-4 h-4 mr-2" />
           Nouveau Projet
         </button>
@@ -273,6 +324,18 @@ export default function ProjectsPage() {
           );
         })}
       </GlassCard>
+
+      <Modal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        title="Nouveau Projet"
+      >
+        <ProjectForm
+          onSubmit={handleCreateProject}
+          onCancel={() => setIsModalOpen(false)}
+          projects={projects}
+        />
+      </Modal>
     </div>
   );
 }
