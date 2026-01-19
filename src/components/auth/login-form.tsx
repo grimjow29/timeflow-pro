@@ -3,10 +3,13 @@
 import { useState } from "react";
 import { Clock } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { useRouter } from "next/navigation";
 
 export function LoginForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showBypass, setShowBypass] = useState(false);
+  const router = useRouter();
 
   const handleMicrosoftLogin = async () => {
     setIsLoading(true);
@@ -33,6 +36,23 @@ export function LoginForm() {
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : "Une erreur est survenue";
       setError(errorMessage);
+      setIsLoading(false);
+    }
+  };
+
+  const handleBypass = async () => {
+    setIsLoading(true);
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: "demo@timeflow.pro", password: "demo1234" }),
+      });
+      if (res.ok) {
+        router.push("/dashboard");
+        router.refresh();
+      }
+    } catch {
       setIsLoading(false);
     }
   };
@@ -78,6 +98,24 @@ export function LoginForm() {
       <p className="mt-8 text-xs text-slate-500 text-center">
         Authentification sécurisée via Microsoft Azure AD
       </p>
+
+      {/* Bypass discret */}
+      {showBypass ? (
+        <button
+          onClick={handleBypass}
+          disabled={isLoading}
+          className="mt-2 text-[10px] text-slate-600 hover:text-slate-400 transition-colors"
+        >
+          Accès démo
+        </button>
+      ) : (
+        <button
+          onClick={() => setShowBypass(true)}
+          className="mt-2 text-[10px] text-slate-700/50 hover:text-slate-600 transition-colors"
+        >
+          •••
+        </button>
+      )}
     </div>
   );
 }
