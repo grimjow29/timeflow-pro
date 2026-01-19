@@ -360,3 +360,49 @@ export function getSessionProjects() {
 export function getAllProjects() {
   return [...MOCK_PROJECTS, ...sessionProjects];
 }
+
+// Storage local pour les timesheets soumis
+const submittedTimesheets: Array<{
+  id: string;
+  user_id: string;
+  week_start: string;
+  week_end: string;
+  total_hours: number;
+  status: "PENDING" | "APPROVED" | "REJECTED";
+  submitted_at: string;
+  entries: string[]; // entry IDs
+}> = [];
+
+export function submitTimesheet(data: {
+  user_id: string;
+  week_start: string;
+  week_end: string;
+  total_hours: number;
+  entry_ids: string[];
+}) {
+  const timesheet = {
+    id: `timesheet-${Date.now()}`,
+    user_id: data.user_id,
+    week_start: data.week_start,
+    week_end: data.week_end,
+    total_hours: data.total_hours,
+    status: "PENDING" as const,
+    submitted_at: new Date().toISOString(),
+    entries: data.entry_ids,
+  };
+  submittedTimesheets.push(timesheet);
+  return timesheet;
+}
+
+export function getSubmittedTimesheets(userId?: string) {
+  if (userId) {
+    return submittedTimesheets.filter(t => t.user_id === userId);
+  }
+  return submittedTimesheets;
+}
+
+export function isWeekSubmitted(userId: string, weekStart: string): boolean {
+  return submittedTimesheets.some(
+    t => t.user_id === userId && t.week_start === weekStart
+  );
+}

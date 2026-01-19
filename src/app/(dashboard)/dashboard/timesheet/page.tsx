@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { ChevronLeft, ChevronRight, Calendar, Play, Send, Loader2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar, Play, Send, Loader2, CheckCircle, AlertCircle } from "lucide-react";
 import { GlassCard } from "@/components/ui/glass-card";
 import { formatTime, getWeekDates } from "@/lib/utils";
 import { Project } from "@/lib/types";
@@ -39,6 +39,13 @@ export default function TimesheetPage() {
   const [timeData, setTimeData] = useState<
     Record<string, { minutes: number; entryId?: string }[]>
   >({});
+
+  // Submission states
+  const [submitting, setSubmitting] = useState(false);
+  const [submitStatus, setSubmitStatus] = useState<{
+    type: "success" | "error" | null;
+    message: string;
+  }>({ type: null, message: "" });
 
   // Calculer les dates de la semaine
   useEffect(() => {
@@ -372,6 +379,76 @@ export default function TimesheetPage() {
   const today = new Date().getDay();
   const todayIndex = today === 0 ? 6 : today - 1;
 
+  // Soumettre le timesheet pour validation
+  const handleSubmitTimesheet = async () => {
+    if (weekDates.length === 0) return;
+
+    const weekTotal = getWeekTotal();
+    if (weekTotal === 0) {
+      setSubmitStatus({
+        type: "error",
+        message: "Aucune heure saisie cette semaine",
+      });
+      setTimeout(() => setSubmitStatus({ type: null, message: "" }), 3000);
+      return;
+    }
+
+    const weekStart = weekDates[0].toISOString().split("T")[0];
+    const weekEnd = weekDates[6].toISOString().split("T")[0];
+
+    // Collecter tous les entry IDs
+    const entryIds: string[] = [];
+    Object.values(timeData).forEach((row) => {
+      row.forEach((cell) => {
+        if (cell.entryId) {
+          entryIds.push(cell.entryId);
+        }
+      });
+    });
+
+    setSubmitting(true);
+    setSubmitStatus({ type: null, message: "" });
+
+    try {
+      const response = await fetch("/api/timesheets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          week_start: weekStart,
+          week_end: weekEnd,
+          total_hours: weekTotal / 60,
+          entry_ids: entryIds,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        setSubmitStatus({
+          type: "success",
+          message: result.message || "Timesheet soumis avec succes!",
+        });
+        // Rafraichir le compteur dans la sidebar
+        window.dispatchEvent(new CustomEvent("approvals-updated"));
+      } else {
+        setSubmitStatus({
+          type: "error",
+          message: result.error || "Erreur lors de la soumission",
+        });
+      }
+    } catch (error) {
+      console.error("Erreur soumission:", error);
+      setSubmitStatus({
+        type: "error",
+        message: "Erreur de connexion",
+      });
+    } finally {
+      setSubmitting(false);
+      // Clear status after 5 seconds
+      setTimeout(() => setSubmitStatus({ type: null, message: "" }), 5000);
+    }
+  };
+
   // Filtrer les projets qui ont des entrées ou qui sont actifs
   const visibleProjects = projects.filter(
     (p) => timeData[p.id]?.some((cell) => cell.minutes > 0) || true
@@ -487,12 +564,38 @@ export default function TimesheetPage() {
           >
             +1h
           </button>
-          <button className="text-xs bg-primary-600 hover:bg-primary-500 text-white px-4 py-2 rounded-md transition-colors shadow-lg shadow-primary-500/20 flex items-center gap-2">
-            <Send className="w-3 h-3" />
-            Soumettre
+          <button
+            onClick={handleSubmitTimesheet}
+            disabled={submitting}
+            className="text-xs bg-primary-600 hover:bg-primary-500 disabled:bg-primary-600/50 disabled:cursor-not-allowed text-white px-4 py-2 rounded-md transition-colors shadow-lg shadow-primary-500/20 flex items-center gap-2"
+          >
+            {submitting ? (
+              <Loader2 className="w-3 h-3 animate-spin" />
+            ) : (
+              <Send className="w-3 h-3" />
+            )}
+            {submitting ? "Envoi..." : "Soumettre"}
           </button>
         </div>
       </div>
+
+      {/* Status Message */}
+      {submitStatus.type && (
+        <div
+          className={`mb-4 p-3 rounded-lg flex items-center gap-2 text-sm animate-fade-in ${
+            submitStatus.type === "success"
+              ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+              : "bg-red-500/20 text-red-400 border border-red-500/30"
+          }`}
+        >
+          {submitStatus.type === "success" ? (
+            <CheckCircle className="w-4 h-4" />
+          ) : (
+            <AlertCircle className="w-4 h-4" />
+          )}
+          {submitStatus.message}
+        </div>
+      )}
 
       {/* Timesheet Grid */}
       <GlassCard className="p-0 overflow-hidden border border-white/5">

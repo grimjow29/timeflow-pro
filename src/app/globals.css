@@ -100,6 +100,102 @@ body {
   background: #a78bfa;
 }
 
+/* Light mode text and element overrides */
+.light .text-white {
+  color: #1e293b !important;
+}
+
+.light .text-slate-200 {
+  color: #334155 !important;
+}
+
+.light .text-slate-300 {
+  color: #475569 !important;
+}
+
+.light .text-slate-400 {
+  color: #64748b !important;
+}
+
+.light .text-slate-500 {
+  color: #94a3b8 !important;
+}
+
+.light .text-slate-600 {
+  color: #64748b !important;
+}
+
+.light .placeholder-slate-500::placeholder {
+  color: #94a3b8 !important;
+}
+
+/* Light mode backgrounds */
+.light .bg-white\/5,
+.light .bg-white\/10 {
+  background-color: rgba(0, 0, 0, 0.05) !important;
+}
+
+.light .hover\:bg-white\/5:hover,
+.light .hover\:bg-white\/10:hover {
+  background-color: rgba(0, 0, 0, 0.08) !important;
+}
+
+.light .bg-surfaceHighlight {
+  background-color: #f1f5f9 !important;
+}
+
+.light .bg-surfaceHighlight\/50 {
+  background-color: rgba(241, 245, 249, 0.5) !important;
+}
+
+.light .bg-surface\/50 {
+  background-color: rgba(255, 255, 255, 0.5) !important;
+}
+
+/* Light mode borders */
+.light .border-white\/5,
+.light .border-white\/10 {
+  border-color: rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Light mode primary colors adjustment */
+.light .text-primary-300 {
+  color: #7c3aed !important;
+}
+
+.light .text-primary-400 {
+  color: #7c3aed !important;
+}
+
+/* Light mode input styling */
+.light input,
+.light textarea {
+  color: #1e293b !important;
+}
+
+.light input::placeholder,
+.light textarea::placeholder {
+  color: #94a3b8 !important;
+}
+
+/* Light mode timer display */
+.light .font-mono {
+  color: #1e293b;
+}
+
+/* Light mode sidebar */
+.light .bg-primary-500\/10 {
+  background-color: rgba(139, 92, 246, 0.15) !important;
+}
+
+.light .bg-primary-500\/5 {
+  background-color: rgba(139, 92, 246, 0.08) !important;
+}
+
+.light .bg-primary-900\/20 {
+  background-color: rgba(139, 92, 246, 0.15) !important;
+}
+
 /* Selection */
 ::selection {
   background-color: rgba(139, 92, 246, 0.3);
