@@ -2,57 +2,36 @@
 
 import { useState } from "react";
 import { Clock } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 
 export function LoginForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showBypass, setShowBypass] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const router = useRouter();
 
-  const handleMicrosoftLogin = async () => {
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     setIsLoading(true);
     setError(null);
 
     try {
-      const supabase = createClient();
-
-      if (!supabase) {
-        throw new Error("Service d'authentification non disponible");
-      }
-
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: "azure",
-        options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
-          scopes: "openid profile email",
-        },
-      });
-
-      if (error) {
-        throw error;
-      }
-    } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : "Une erreur est survenue";
-      setError(errorMessage);
-      setIsLoading(false);
-    }
-  };
-
-  const handleBypass = async () => {
-    setIsLoading(true);
-    try {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: "demo@timeflow.pro", password: "demo1234" }),
+        body: JSON.stringify({ email, password }),
       });
-      if (res.ok) {
-        router.push("/dashboard");
-        router.refresh();
-      }
-    } catch {
+
+      const data = await res.json();
+
+      if (!res.ok) throw new Error(data.error || "Erreur de connexion");
+
+      router.push("/dashboard");
+      router.refresh();
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : "Une erreur est survenue";
+      setError(errorMessage);
       setIsLoading(false);
     }
   };
@@ -79,43 +58,49 @@ export function LoginForm() {
         </div>
       )}
 
-      {/* Microsoft Login Button */}
-      <button
-        onClick={handleMicrosoftLogin}
-        disabled={isLoading}
-        className="w-full flex items-center justify-center gap-3 bg-white hover:bg-gray-100 text-gray-800 px-6 py-3.5 rounded-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
-      >
-        <svg className="w-5 h-5" viewBox="0 0 21 21" xmlns="http://www.w3.org/2000/svg">
-          <rect x="1" y="1" width="9" height="9" fill="#f25022"/>
-          <rect x="11" y="1" width="9" height="9" fill="#7fba00"/>
-          <rect x="1" y="11" width="9" height="9" fill="#00a4ef"/>
-          <rect x="11" y="11" width="9" height="9" fill="#ffb900"/>
-        </svg>
-        {isLoading ? "Connexion en cours..." : "Se connecter avec Microsoft"}
-      </button>
+      {/* Login Form */}
+      <form onSubmit={handleSubmit} className="w-full space-y-4">
+        <div>
+          <input
+            type="email"
+            placeholder="Email professionnel"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-primary-500/50 transition-colors"
+          />
+        </div>
+        <div>
+          <input
+            type="password"
+            placeholder="Mot de passe"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            minLength={8}
+            className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-primary-500/50 transition-colors"
+          />
+        </div>
+
+        <button
+          type="submit"
+          disabled={isLoading}
+          className="w-full flex items-center justify-center gap-3 bg-white hover:bg-gray-100 text-gray-800 px-6 py-3.5 rounded-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+        >
+          <svg className="w-5 h-5" viewBox="0 0 21 21" xmlns="http://www.w3.org/2000/svg">
+            <rect x="1" y="1" width="9" height="9" fill="#f25022"/>
+            <rect x="11" y="1" width="9" height="9" fill="#7fba00"/>
+            <rect x="1" y="11" width="9" height="9" fill="#00a4ef"/>
+            <rect x="11" y="11" width="9" height="9" fill="#ffb900"/>
+          </svg>
+          {isLoading ? "Connexion en cours..." : "Se connecter avec Microsoft"}
+        </button>
+      </form>
 
       {/* Info */}
       <p className="mt-8 text-xs text-slate-500 text-center">
         Authentification sécurisée via Microsoft Azure AD
       </p>
-
-      {/* Bypass discret */}
-      {showBypass ? (
-        <button
-          onClick={handleBypass}
-          disabled={isLoading}
-          className="mt-2 text-[10px] text-slate-600 hover:text-slate-400 transition-colors"
-        >
-          Accès démo
-        </button>
-      ) : (
-        <button
-          onClick={() => setShowBypass(true)}
-          className="mt-2 text-[10px] text-slate-700/50 hover:text-slate-600 transition-colors"
-        >
-          •••
-        </button>
-      )}
     </div>
   );
 }
