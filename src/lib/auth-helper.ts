@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { cookies } from "next/headers";
+import { verifyAndParseSession } from "@/lib/session-security";
 
 export type AuthUser = {
   id: string;
@@ -8,10 +9,26 @@ export type AuthUser = {
   user_metadata: Record<string, unknown>;
   aud: string;
   created_at: string;
+  role?: string;
 };
 
+interface SessionData {
+  user: {
+    id: string;
+    email: string;
+    name: string;
+    avatar_url: string | null;
+    role: string;
+    group_id: string | null;
+    created_at: string;
+    updated_at: string;
+  };
+  expires: number;
+  isDemo?: boolean;
+}
+
 /**
- * Check for active session
+ * Check for active session with signature verification
  */
 async function getSessionUser(): Promise<AuthUser | null> {
   try {
@@ -19,18 +36,27 @@ async function getSessionUser(): Promise<AuthUser | null> {
     const sessionCookie = cookieStore.get("tf_session");
     if (!sessionCookie?.value) return null;
 
-    const session = JSON.parse(sessionCookie.value);
+    // Verify and parse signed session
+    const session = verifyAndParseSession<SessionData>(sessionCookie.value);
+
+    if (!session) {
+      console.warn("Invalid or tampered session detected");
+      return null;
+    }
+
     if (session.expires && session.expires > Date.now()) {
       return {
         id: session.user.id,
         email: session.user.email,
-        app_metadata: {},
+        app_metadata: { role: session.user.role },
         user_metadata: { name: session.user.name },
         aud: "authenticated",
         created_at: session.user.created_at,
+        role: session.user.role,
       };
     }
-  } catch {
+  } catch (error) {
+    console.error("Session verification error:", error);
     return null;
   }
   return null;

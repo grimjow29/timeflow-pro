@@ -1,17 +1,73 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-// Check for demo session
-function getDemoSession(request: NextRequest) {
+// Session secret - must match the one in session-security.ts
+const SESSION_SECRET = process.env.SESSION_SECRET || "timeflow-demo-secret-key-2024-change-in-production";
+
+/**
+ * Verify HMAC signature using Web Crypto API (Edge compatible)
+ */
+async function verifySignature(data: string, signature: string): Promise<boolean> {
+  try {
+    const encoder = new TextEncoder();
+    const keyData = encoder.encode(SESSION_SECRET);
+    const dataBuffer = encoder.encode(data);
+
+    const cryptoKey = await crypto.subtle.importKey(
+      "raw",
+      keyData,
+      { name: "HMAC", hash: "SHA-256" },
+      false,
+      ["sign"]
+    );
+
+    const signatureBuffer = await crypto.subtle.sign("HMAC", cryptoKey, dataBuffer);
+    const computedSignature = Array.from(new Uint8Array(signatureBuffer))
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
+
+    return computedSignature === signature;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Check for demo session with signature verification
+ */
+async function getDemoSession(request: NextRequest) {
   const demoSessionCookie = request.cookies.get("tf_session");
   if (!demoSessionCookie?.value) return null;
 
   try {
-    const session = JSON.parse(demoSessionCookie.value);
-    if (session.expires && session.expires > Date.now()) {
-      return session.user;
+    const sessionValue = demoSessionCookie.value;
+
+    // Check if it's a signed session (new format: base64.signature)
+    if (sessionValue.includes(".")) {
+      const [base64Data, signature] = sessionValue.split(".");
+
+      // Verify signature
+      const isValid = await verifySignature(base64Data, signature);
+      if (!isValid) {
+        console.warn("Invalid session signature detected");
+        return null;
+      }
+
+      // Parse session data
+      const jsonData = atob(base64Data);
+      const session = JSON.parse(jsonData);
+
+      if (session.expires && session.expires > Date.now()) {
+        return session.user;
+      }
+    } else {
+      // Legacy format (plain JSON) - reject for security
+      // Only accept signed sessions
+      console.warn("Legacy unsigned session detected - rejecting");
+      return null;
     }
-  } catch {
+  } catch (error) {
+    console.error("Session parsing error:", error);
     return null;
   }
   return null;
@@ -24,8 +80,8 @@ export async function middleware(request: NextRequest) {
     },
   });
 
-  // Check demo session first
-  const demoUser = getDemoSession(request);
+  // Check demo session first (with signature verification)
+  const demoUser = await getDemoSession(request);
 
   // Then check Supabase auth (MODE DEMO: skip si clé invalide)
   let supabaseUser = null;

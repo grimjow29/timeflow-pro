@@ -130,6 +130,7 @@ export default function TimesheetPage() {
       await loadProjects();
     };
     fetchProjects();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Charger les entrées quand la semaine ou les projets changent
@@ -142,6 +143,7 @@ export default function TimesheetPage() {
         setLoading(false);
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [weekDates, projects.length]);
 
   // Timer logic

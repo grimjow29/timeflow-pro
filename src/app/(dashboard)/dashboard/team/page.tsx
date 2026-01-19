@@ -41,6 +41,18 @@ export default function TeamPage() {
   // Filter state
   const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
 
+  // Edit/Delete states
+  const [editingMember, setEditingMember] = useState<ProfileWithGroup | null>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [deletingMember, setDeletingMember] = useState<ProfileWithGroup | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [editForm, setEditForm] = useState<MemberFormData>({
+    email: "",
+    name: "",
+    role: "EMPLOYEE",
+    group_id: null,
+  });
+
   // Fetch data
   useEffect(() => {
     async function fetchData() {
@@ -146,6 +158,83 @@ export default function TeamPage() {
       setError(err instanceof Error ? err.message : "Erreur de création");
     } finally {
       setCreatingMember(false);
+    }
+  }
+
+  // Open edit modal with member data
+  const openEditModal = (member: ProfileWithGroup) => {
+    setEditingMember(member);
+    setEditForm({
+      email: member.email,
+      name: member.name || "",
+      role: member.role,
+      group_id: member.group_id || null,
+    });
+    setShowEditModal(true);
+  };
+
+  // Handle edit member
+  async function handleEditMember(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editingMember) return;
+
+    try {
+      setCreatingMember(true);
+      const res = await fetch(`/api/users/${editingMember.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(editForm),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Erreur lors de la modification");
+      }
+
+      const { data } = await res.json();
+
+      // Update local state
+      const groupInfo = editForm.group_id
+        ? groups.find(g => g.id === editForm.group_id)
+        : null;
+
+      setMembers(prev => prev.map(m =>
+        m.id === editingMember.id
+          ? { ...m, ...data, group: groupInfo ? { id: groupInfo.id, name: groupInfo.name } : null }
+          : m
+      ));
+
+      setShowEditModal(false);
+      setEditingMember(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erreur de modification");
+    } finally {
+      setCreatingMember(false);
+    }
+  }
+
+  // Handle delete member
+  async function handleDeleteMember() {
+    if (!deletingMember) return;
+
+    try {
+      setIsDeleting(true);
+      const res = await fetch(`/api/users/${deletingMember.id}`, {
+        method: "DELETE",
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Erreur lors de la suppression");
+      }
+
+      // Remove from local state
+      setMembers(prev => prev.filter(m => m.id !== deletingMember.id));
+      setDeletingMember(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erreur de suppression");
+    } finally {
+      setIsDeleting(false);
     }
   }
 
@@ -272,12 +361,14 @@ export default function TeamPage() {
             {/* Actions */}
             <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
               <button
+                onClick={() => openEditModal(member)}
                 className="p-1.5 rounded bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-colors"
                 title="Modifier"
               >
                 <Edit2 className="w-3.5 h-3.5" />
               </button>
               <button
+                onClick={() => setDeletingMember(member)}
                 className="p-1.5 rounded bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 transition-colors"
                 title="Supprimer"
               >
@@ -500,6 +591,167 @@ export default function TeamPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Member Modal */}
+      {showEditModal && editingMember && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-surface border border-white/10 rounded-xl p-6 w-full max-w-md shadow-2xl">
+            <div className="flex justify-between items-center mb-5">
+              <h3 className="text-lg font-medium text-white">Modifier le membre</h3>
+              <button
+                onClick={() => {
+                  setShowEditModal(false);
+                  setEditingMember(null);
+                }}
+                className="text-slate-400 hover:text-white transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleEditMember} className="space-y-4">
+              {/* Email */}
+              <div>
+                <label className="block text-sm text-slate-400 mb-2">
+                  <Mail className="w-3.5 h-3.5 inline mr-1" />
+                  Email *
+                </label>
+                <input
+                  type="email"
+                  value={editForm.email}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, email: e.target.value }))}
+                  placeholder="exemple@company.com"
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-white placeholder:text-slate-500 focus:outline-none focus:border-primary-500 transition-colors"
+                  required
+                />
+              </div>
+
+              {/* Name */}
+              <div>
+                <label className="block text-sm text-slate-400 mb-2">
+                  <UserCircle className="w-3.5 h-3.5 inline mr-1" />
+                  Nom *
+                </label>
+                <input
+                  type="text"
+                  value={editForm.name}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
+                  placeholder="Prénom Nom"
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-white placeholder:text-slate-500 focus:outline-none focus:border-primary-500 transition-colors"
+                  required
+                />
+              </div>
+
+              {/* Role */}
+              <div>
+                <label className="block text-sm text-slate-400 mb-2">
+                  <Shield className="w-3.5 h-3.5 inline mr-1" />
+                  Rôle *
+                </label>
+                <select
+                  value={editForm.role}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, role: e.target.value as UserRole }))}
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-primary-500 transition-colors"
+                >
+                  <option value="EMPLOYEE">EMPLOYEE</option>
+                  <option value="MANAGER">MANAGER</option>
+                  <option value="VALIDATOR">VALIDATOR</option>
+                  <option value="ADMIN">ADMIN</option>
+                </select>
+              </div>
+
+              {/* Group */}
+              <div>
+                <label className="block text-sm text-slate-400 mb-2">
+                  <Users className="w-3.5 h-3.5 inline mr-1" />
+                  Groupe
+                </label>
+                <select
+                  value={editForm.group_id || ""}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, group_id: e.target.value || null }))}
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-primary-500 transition-colors"
+                >
+                  <option value="">Aucun groupe</option>
+                  {groups.map(group => (
+                    <option key={group.id} value={group.id}>
+                      {group.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowEditModal(false);
+                    setEditingMember(null);
+                  }}
+                  className="flex-1 px-4 py-2.5 text-sm font-medium text-slate-400 hover:text-white transition-colors rounded-lg hover:bg-white/5"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="submit"
+                  disabled={creatingMember}
+                  className="flex-1 bg-primary-500 hover:bg-primary-600 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2.5 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
+                >
+                  {creatingMember && <Loader2 className="w-4 h-4 animate-spin" />}
+                  Modifier
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deletingMember && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-surface border border-white/10 rounded-xl p-6 w-full max-w-md shadow-2xl animate-scale-in">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center">
+                <Trash2 className="w-5 h-5 text-red-400" />
+              </div>
+              <div>
+                <h3 className="text-lg font-medium text-white">Supprimer le membre</h3>
+                <p className="text-sm text-slate-400">Cette action est irréversible</p>
+              </div>
+            </div>
+
+            <p className="text-slate-300 mb-6">
+              Êtes-vous sûr de vouloir supprimer <strong className="text-white">{deletingMember.name || deletingMember.email}</strong> de l&apos;équipe ?
+            </p>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setDeletingMember(null)}
+                disabled={isDeleting}
+                className="flex-1 px-4 py-2.5 text-sm font-medium text-slate-400 hover:text-white transition-colors rounded-lg hover:bg-white/5"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={handleDeleteMember}
+                disabled={isDeleting}
+                className="flex-1 bg-red-500 hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2.5 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
+              >
+                {isDeleting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Suppression...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4" />
+                    Supprimer
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}

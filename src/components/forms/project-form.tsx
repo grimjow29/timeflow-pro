@@ -1,15 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
-import { CreateProjectInput, Project } from "@/lib/types";
+import { CreateProjectInput, Project, ProjectStatus } from "@/lib/types";
 import { Loader2 } from "lucide-react";
 
 interface ProjectFormProps {
   onSubmit: (data: CreateProjectInput) => Promise<void>;
   onCancel: () => void;
   projects: Project[];
+  initialData?: Project; // For editing
+  isEditing?: boolean;
 }
 
 const PRESET_COLORS = [
@@ -23,8 +25,8 @@ const PRESET_COLORS = [
   { value: "#6366f1", label: "Indigo" },
 ];
 
-export function ProjectForm({ onSubmit, onCancel, projects }: ProjectFormProps) {
-  const [formData, setFormData] = useState<CreateProjectInput>({
+export function ProjectForm({ onSubmit, onCancel, projects, initialData, isEditing }: ProjectFormProps) {
+  const [formData, setFormData] = useState<CreateProjectInput & { status?: ProjectStatus }>({
     name: "",
     description: "",
     color: "#8b5cf6",
@@ -32,7 +34,24 @@ export function ProjectForm({ onSubmit, onCancel, projects }: ProjectFormProps) 
     billable: true,
     hourly_rate: undefined,
     budget: undefined,
+    status: "ACTIVE",
   });
+
+  // Initialize form with existing data when editing
+  useEffect(() => {
+    if (initialData && isEditing) {
+      setFormData({
+        name: initialData.name,
+        description: initialData.description || "",
+        color: initialData.color,
+        parent_id: initialData.parent_id || "",
+        billable: initialData.billable,
+        hourly_rate: initialData.hourly_rate || undefined,
+        budget: initialData.budget || undefined,
+        status: initialData.status,
+      });
+    }
+  }, [initialData, isEditing]);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -202,6 +221,22 @@ export function ProjectForm({ onSubmit, onCancel, projects }: ProjectFormProps) 
         step="1"
       />
 
+      {/* Status selector - only show when editing */}
+      {isEditing && (
+        <Select
+          label="Statut"
+          name="status"
+          value={formData.status || "ACTIVE"}
+          onChange={handleChange}
+          options={[
+            { value: "ACTIVE", label: "Actif" },
+            { value: "PAUSED", label: "En pause" },
+            { value: "COMPLETED", label: "Terminé" },
+            { value: "ARCHIVED", label: "Archivé" },
+          ]}
+        />
+      )}
+
       {/* Footer Buttons */}
       <div className="flex items-center justify-end gap-3 pt-4 border-t border-white/10">
         <button
@@ -220,10 +255,10 @@ export function ProjectForm({ onSubmit, onCancel, projects }: ProjectFormProps) 
           {isSubmitting ? (
             <>
               <Loader2 className="w-4 h-4 animate-spin" />
-              Création...
+              {isEditing ? "Modification..." : "Création..."}
             </>
           ) : (
-            "Créer le projet"
+            isEditing ? "Modifier le projet" : "Créer le projet"
           )}
         </button>
       </div>
