@@ -6,6 +6,7 @@ import { formatTime } from "@/lib/utils";
 import type { Profile } from "@/lib/types";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { useMobileMenu } from "./mobile-menu-context";
+import { SaveTimeModal } from "@/components/timer/save-time-modal";
 
 interface HeaderProps {
   user: Profile | null;
@@ -16,6 +17,8 @@ export function Header({ user }: HeaderProps) {
   const [isRunning, setIsRunning] = useState(false);
   const [seconds, setSeconds] = useState(0);
   const [currentProject, setCurrentProject] = useState("Aucun projet");
+  const [showSaveModal, setShowSaveModal] = useState(false);
+  const [savedDuration, setSavedDuration] = useState(0);
   const { toggle } = useMobileMenu();
 
   // Load timer state from localStorage
@@ -72,10 +75,45 @@ export function Header({ user }: HeaderProps) {
   };
 
   const handleStopTimer = () => {
+    // Save the duration before resetting
+    setSavedDuration(seconds);
     setIsRunning(false);
-    setSeconds(0);
     localStorage.removeItem("timeflow-timer");
-    // TODO: Save time entry to database
+    // Open the save modal
+    setShowSaveModal(true);
+  };
+
+  const handleSaveTimeEntry = async (data: { projectId: string; description: string; duration: number }) => {
+    try {
+      const today = new Date().toISOString().split("T")[0];
+      const response = await fetch("/api/time-entries", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          project_id: data.projectId,
+          description: data.description,
+          duration: data.duration,
+          date: today,
+          billable: true,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Erreur lors de l'enregistrement");
+      }
+
+      // Reset timer after successful save
+      setSeconds(0);
+    } catch (error) {
+      console.error("Error saving time entry:", error);
+      throw error;
+    }
+  };
+
+  const handleCloseModal = () => {
+    setShowSaveModal(false);
+    setSeconds(0);
+    setSavedDuration(0);
   };
 
   return (
@@ -154,6 +192,14 @@ export function Header({ user }: HeaderProps) {
           <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border-2 border-surface" />
         </button>
       </div>
+
+      {/* Save Time Entry Modal */}
+      <SaveTimeModal
+        isOpen={showSaveModal}
+        onClose={handleCloseModal}
+        duration={savedDuration}
+        onSave={handleSaveTimeEntry}
+      />
     </header>
   );
 }
