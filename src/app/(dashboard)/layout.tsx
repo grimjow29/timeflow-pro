@@ -11,9 +11,17 @@ async function getSession() {
   if (!sessionCookie?.value) return null;
 
   try {
-    const session = JSON.parse(sessionCookie.value);
-    if (session.expires && session.expires > Date.now()) {
-      return session.user;
+    const sessionValue = sessionCookie.value;
+
+    // Handle signed session format (base64.signature)
+    if (sessionValue.includes(".")) {
+      const [base64Data] = sessionValue.split(".");
+      const jsonData = Buffer.from(base64Data, "base64").toString("utf-8");
+      const session = JSON.parse(jsonData);
+
+      if (session.expires && session.expires > Date.now()) {
+        return session.user;
+      }
     }
   } catch {
     return null;
