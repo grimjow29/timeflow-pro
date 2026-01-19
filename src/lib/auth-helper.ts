@@ -40,15 +40,21 @@ async function getSessionUser(): Promise<AuthUser | null> {
  * Get authenticated user
  */
 export async function getAuthUser(): Promise<{ user: AuthUser | null; error: Error | null }> {
-  // Check session first
+  // Check session first (MODE DEMO)
   const sessionUser = await getSessionUser();
   if (sessionUser) {
     return { user: sessionUser, error: null };
   }
 
-  // Fallback to Supabase
+  // Fallback to Supabase (si disponible)
   try {
     const supabase = await createClient();
+
+    // En mode DEMO, si Supabase n'est pas disponible, retourner null
+    if (!supabase) {
+      return { user: null, error: new Error("No active session") };
+    }
+
     const { data: { user }, error } = await supabase.auth.getUser();
     return { user: user as AuthUser | null, error };
   } catch (error) {
@@ -58,7 +64,13 @@ export async function getAuthUser(): Promise<{ user: AuthUser | null; error: Err
 
 /**
  * Get Supabase client - for database operations
+ * MODE DEMO: Retourne null si Supabase n'est pas configuré
  */
 export async function getSupabaseClient() {
-  return await createClient();
+  try {
+    return await createClient();
+  } catch (error) {
+    console.warn("[MODE DEMO] Supabase non disponible:", error);
+    return null;
+  }
 }

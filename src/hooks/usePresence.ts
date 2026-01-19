@@ -76,6 +76,8 @@ export function usePresence(
     const supabase = createClient();
 
     const getUser = async () => {
+      if (!supabase) return;
+
       try {
         const {
           data: { user },
@@ -111,6 +113,7 @@ export function usePresence(
     }
 
     const supabase = createClient();
+    if (!supabase) return;
 
     const channel = supabase.channel(channelName, {
       config: {

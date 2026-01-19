@@ -90,7 +90,7 @@ export async function POST(request: NextRequest) {
       project_id: body.project_id,
       date: body.date,
       duration: body.duration,
-      description: body.description || null,
+      description: body.description || "",
       billable: body.billable ?? true,
       tags: [],
       timesheet_id: null,

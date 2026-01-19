@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 
-import { createClient } from "@/lib/supabase/server";
+import { getAuthUser } from "@/lib/auth-helper";
+import { getMockTimeEntries } from "@/lib/mock-data";
 import { NextResponse } from "next/server";
 import {
   generateTimeSuggestions,
@@ -13,17 +14,12 @@ import {
 
 export async function GET(request: Request) {
   try {
-    const supabase = await createClient();
-
-    // Get authenticated user
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
+    // Get authenticated user (MODE DEMO)
+    const { user, error: authError } = await getAuthUser();
 
     if (authError || !user) {
       return NextResponse.json(
-        { error: "Non authentifie" },
+        { error: "Non authentifié" },
         { status: 401 }
       );
     }
@@ -32,24 +28,15 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const goalHours = parseInt(searchParams.get("goalHours") || "40", 10);
 
-    // Fetch user's time entries from the last 30 days
+    // Fetch user's time entries from the last 30 days (MODE DEMO: using mock data)
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-    const { data: entries, error: entriesError } = await supabase
-      .from("time_entries")
-      .select("*, project:projects(*)")
-      .eq("user_id", user.id)
-      .gte("date", thirtyDaysAgo.toISOString())
-      .order("date", { ascending: false });
-
-    if (entriesError) {
-      console.error("Error fetching entries:", entriesError);
-      return NextResponse.json(
-        { error: "Erreur lors de la recuperation des entrees" },
-        { status: 500 }
-      );
-    }
+    const entries = getMockTimeEntries(
+      user.id,
+      thirtyDaysAgo.toISOString().split('T')[0],
+      new Date().toISOString().split('T')[0]
+    );
 
     // Get current date/time info
     const now = new Date();
@@ -58,22 +45,22 @@ export async function GET(request: Request) {
 
     // Generate AI suggestions
     const suggestions = generateTimeSuggestions(
-      entries || [],
+      entries as unknown as Parameters<typeof generateTimeSuggestions>[0],
       currentDay,
       currentHour
     );
 
     // Analyze weekly patterns
-    const weeklyPatterns = analyzeWeeklyPatterns(entries || []);
+    const weeklyPatterns = analyzeWeeklyPatterns(entries as unknown as Parameters<typeof analyzeWeeklyPatterns>[0]);
 
     // Calculate productivity score
     const productivityScore = calculateProductivityScore(
-      entries || [],
+      entries as unknown as Parameters<typeof calculateProductivityScore>[0],
       goalHours
     );
 
     // Get weekly progress data
-    const weeklyProgress = getWeeklyProgressData(entries || []);
+    const weeklyProgress = getWeeklyProgressData(entries as unknown as Parameters<typeof getWeeklyProgressData>[0]);
 
     return NextResponse.json({
       success: true,

@@ -1,32 +1,29 @@
-import { createClient } from "@/lib/supabase/server";
+import { getAuthUser } from "@/lib/auth-helper";
+import { getMockTimeEntries } from "@/lib/mock-data";
 import { Clock, Calendar, Zap } from "lucide-react";
 import { StatCard } from "@/components/ui/stat-card";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Badge } from "@/components/ui/badge";
+import { redirect } from "next/navigation";
 
 export default async function DashboardPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // Get authenticated user (MODE DEMO)
+  const { user } = await getAuthUser();
 
-  // Fetch user profile
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("id", user?.id)
-    .single();
+  if (!user) {
+    redirect("/login");
+  }
 
-  // Fetch recent time entries
-  const { data: recentEntries } = await supabase
-    .from("time_entries")
-    .select("*, project:projects(*)")
-    .eq("user_id", user?.id)
-    .order("created_at", { ascending: false })
-    .limit(5);
+  // Fetch recent time entries (MODE DEMO: using mock data)
+  const allEntries = getMockTimeEntries(user.id);
+  const recentEntries = allEntries
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    .slice(0, 5);
 
-  // Mock data for stats (will be replaced with real data later)
-  const weeklyHours = "36:00";
+  // Calculate stats from mock data
+  const totalMinutes = allEntries.reduce((sum, entry) => sum + entry.duration, 0);
+  const totalHours = totalMinutes / 60;
+  const weeklyHours = `${Math.floor(totalHours)}:${String(Math.round((totalHours % 1) * 60)).padStart(2, "0")}`;
   const monthlyHours = "142:30";
   const productivity = "94%";
 
@@ -39,7 +36,7 @@ export default async function DashboardPage() {
             Dashboard
           </h2>
           <p className="text-slate-500 mt-1">
-            Bienvenue {profile?.name || "Utilisateur"}, voici votre activité.
+            Bienvenue {(user.user_metadata?.name as string | undefined) || user.email || "Utilisateur"}, voici votre activité.
           </p>
         </div>
         <div className="flex gap-2">
@@ -152,7 +149,12 @@ export default async function DashboardPage() {
               </thead>
               <tbody className="divide-y divide-white/5 text-slate-300">
                 {recentEntries && recentEntries.length > 0 ? (
-                  recentEntries.map((entry) => (
+                  recentEntries.map((entry: {
+                    id: string;
+                    duration: number;
+                    description: string | null;
+                    project?: { name: string } | null;
+                  }) => (
                     <tr
                       key={entry.id}
                       className="hover:bg-white/5 transition-colors"

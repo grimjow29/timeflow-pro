@@ -2,9 +2,10 @@ export const dynamic = "force-dynamic";
 
 import { getAuthUser } from "@/lib/auth-helper";
 import { NextRequest, NextResponse } from "next/server";
-import { getMockApprovals, getMockTimeEntries, MOCK_PROJECTS, MOCK_USERS } from "@/lib/mock-data";
+import { getMockApprovals, getMockTimeEntries, MOCK_USERS } from "@/lib/mock-data";
+import { TimesheetApproval } from "@/lib/types";
 
-let sessionApprovals: any[] = [];
+const sessionApprovals: TimesheetApproval[] = [];
 
 /**
  * GET /api/approvals
@@ -30,11 +31,11 @@ export async function GET(request: NextRequest) {
     }
 
     // Add user and entries data
-    approvals = approvals.map(approval => {
+    const enrichedApprovals = approvals.map(approval => {
       const approvalUser = MOCK_USERS.find(u => u.id === approval.user_id) || {
         id: user.id,
         name: user.user_metadata?.name || "Utilisateur",
-        email: user.email,
+        email: user.email || "",
         avatar_url: null,
       };
 
@@ -53,7 +54,7 @@ export async function GET(request: NextRequest) {
       };
     });
 
-    return NextResponse.json({ data: approvals });
+    return NextResponse.json({ data: enrichedApprovals });
   } catch (error) {
     console.error("Erreur serveur:", error);
     return NextResponse.json(
@@ -99,14 +100,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const newApproval = {
+    const newApproval: TimesheetApproval = {
       id: `approval-${Date.now()}`,
       user_id: user.id,
       validator_id: null,
       week_start,
       week_end,
       total_hours: totalHours,
-      status: "PENDING",
+      status: "PENDING" as const,
       comments: null,
       submitted_at: new Date().toISOString(),
       reviewed_at: null,

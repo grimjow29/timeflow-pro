@@ -15,6 +15,13 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
     const supabase = await createClient();
+    if (!supabase) {
+      return NextResponse.json(
+        { error: "Non authentifié" },
+        { status: 401 }
+      );
+    }
+
 
     // Vérifier l'authentification
     const {
@@ -72,6 +79,13 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
     const supabase = await createClient();
+    if (!supabase) {
+      return NextResponse.json(
+        { error: "Non authentifié" },
+        { status: 401 }
+      );
+    }
+
 
     // Vérifier l'authentification
     const {
@@ -94,7 +108,10 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       .from("time_entries")
       .select("id, user_id, timesheet_id")
       .eq("id", id)
-      .single();
+      .single() as {
+        data: { id: string; user_id: string; timesheet_id: string | null } | null;
+        error: unknown
+      };
 
     if (checkError || !existing) {
       return NextResponse.json(
@@ -135,7 +152,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     // Mettre à jour l'entrée
     const { data, error } = await supabase
       .from("time_entries")
-      .update(updateData)
+      .update(updateData as never)
       .eq("id", id)
       .eq("user_id", user.id)
       .select(`
@@ -170,6 +187,13 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
     const supabase = await createClient();
+    if (!supabase) {
+      return NextResponse.json(
+        { error: "Non authentifié" },
+        { status: 401 }
+      );
+    }
+
 
     // Vérifier l'authentification
     const {
@@ -189,7 +213,10 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       .from("time_entries")
       .select("id, user_id, timesheet_id")
       .eq("id", id)
-      .single();
+      .single() as {
+        data: { id: string; user_id: string; timesheet_id: string | null } | null;
+        error: unknown
+      };
 
     if (checkError || !existing) {
       return NextResponse.json(

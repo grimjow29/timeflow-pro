@@ -25,6 +25,13 @@ export async function GET(
 ) {
   try {
     const supabase = await createClient();
+    if (!supabase) {
+      return NextResponse.json(
+        { error: "Non authentifié" },
+        { status: 401 }
+      );
+    }
+
     const { id } = await params;
 
     // Vérifier l'authentification
@@ -64,7 +71,7 @@ export async function GET(
 
     return NextResponse.json({
       data: {
-        ...project,
+        ...(project as Record<string, unknown>),
         children: children || [],
       },
     });
@@ -87,6 +94,13 @@ export async function PUT(
 ) {
   try {
     const supabase = await createClient();
+    if (!supabase) {
+      return NextResponse.json(
+        { error: "Non authentifié" },
+        { status: 401 }
+      );
+    }
+
     const { id } = await params;
 
     // Vérifier l'authentification
@@ -157,7 +171,7 @@ export async function PUT(
         .from("projects")
         .select("id, parent_id")
         .eq("id", body.parent_id)
-        .single();
+        .single() as { data: { id: string; parent_id: string | null } | null; error: unknown };
 
       if (parentError || !parentProject) {
         return NextResponse.json(
@@ -201,7 +215,7 @@ export async function PUT(
     // Mettre à jour le projet
     const { data, error } = await supabase
       .from("projects")
-      .update(updateData)
+      .update(updateData as never)
       .eq("id", id)
       .select()
       .single();
@@ -234,6 +248,13 @@ export async function DELETE(
 ) {
   try {
     const supabase = await createClient();
+    if (!supabase) {
+      return NextResponse.json(
+        { error: "Non authentifié" },
+        { status: 401 }
+      );
+    }
+
     const { id } = await params;
 
     // Vérifier l'authentification

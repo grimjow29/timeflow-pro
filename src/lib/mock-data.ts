@@ -254,10 +254,50 @@ export function getMockApprovals(userId: string) {
 }
 
 // Storage local pour les données créées pendant la session
-let sessionTimeEntries: any[] = [];
-let sessionProjects: any[] = [];
+const sessionTimeEntries: Array<{
+  id: string;
+  user_id: string;
+  project_id: string;
+  date: string;
+  duration: number;
+  description: string | null;
+  billable: boolean;
+  tags: string[];
+  timesheet_id: string | null;
+  created_at: string;
+  updated_at: string;
+  project: { id: string; name: string; color: string } | null;
+}> = [];
 
-export function addSessionTimeEntry(entry: any) {
+const sessionProjects: Array<{
+  id: string;
+  name: string;
+  description?: string;
+  color: string;
+  parent_id: string | null;
+  billable: boolean;
+  hourly_rate: number | null;
+  budget: number | null;
+  status: string;
+  created_at: string;
+  updated_at: string;
+  children?: unknown[];
+}> = [];
+
+export function addSessionTimeEntry(entry: {
+  id: string;
+  user_id: string;
+  project_id: string;
+  date: string;
+  duration: number;
+  description: string | null;
+  billable: boolean;
+  tags: string[];
+  timesheet_id: string | null;
+  created_at: string;
+  updated_at: string;
+  project: { id: string; name: string; color: string } | null;
+}) {
   sessionTimeEntries.push(entry);
 }
 
@@ -265,7 +305,19 @@ export function getSessionTimeEntries() {
   return sessionTimeEntries;
 }
 
-export function addSessionProject(project: any) {
+export function addSessionProject(project: {
+  id: string;
+  name: string;
+  description?: string;
+  color: string;
+  parent_id: string | null;
+  billable: boolean;
+  hourly_rate: number | null;
+  budget: number | null;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}) {
   sessionProjects.push(project);
 }
 

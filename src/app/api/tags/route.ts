@@ -3,8 +3,9 @@ export const dynamic = "force-dynamic";
 import { getAuthUser } from "@/lib/auth-helper";
 import { NextRequest, NextResponse } from "next/server";
 import { MOCK_TAGS } from "@/lib/mock-data";
+import { Tag } from "@/lib/types";
 
-let sessionTags: any[] = [];
+const sessionTags: Tag[] = [];
 
 /**
  * GET /api/tags

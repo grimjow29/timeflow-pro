@@ -24,7 +24,15 @@ export async function GET(request: NextRequest) {
 
     const groups = MOCK_GROUPS.map(g => {
       const manager = MOCK_USERS.find(u => u.id === g.manager_id);
-      const result: any = {
+      const result: {
+        id: string;
+        name: string;
+        manager_id: string | null;
+        created_at: string;
+        updated_at: string;
+        manager: { id: string; name: string; email: string; avatar_url: string | null } | null;
+        members?: Array<{ id: string; name: string; email: string; avatar_url: string | null; role: string }>;
+      } = {
         ...g,
         manager: manager ? { id: manager.id, name: manager.name, email: manager.email, avatar_url: manager.avatar_url } : null,
       };

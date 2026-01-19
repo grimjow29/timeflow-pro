@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { getAuthUser } from "@/lib/auth-helper";
 import { NextRequest, NextResponse } from "next/server";
-import { getMockTimeEntries, MOCK_PROJECTS } from "@/lib/mock-data";
+import { getMockTimeEntries } from "@/lib/mock-data";
 import { startOfWeek, endOfWeek, startOfMonth, endOfMonth, subWeeks, subMonths, format, eachDayOfInterval, parseISO } from "date-fns";
 
 interface HoursPerDay {

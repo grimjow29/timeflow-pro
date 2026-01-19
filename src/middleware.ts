@@ -27,13 +27,15 @@ export async function middleware(request: NextRequest) {
   // Check demo session first
   const demoUser = getDemoSession(request);
 
-  // Then check Supabase auth
+  // Then check Supabase auth (MODE DEMO: skip si clé invalide)
   let supabaseUser = null;
   try {
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+    // Valider que les clés existent et sont au bon format
+    if (url && anonKey && url !== "" && anonKey.startsWith("eyJ")) {
+      const supabase = createServerClient(url, anonKey, {
         cookies: {
           getAll() {
             return request.cookies.getAll();
@@ -44,13 +46,14 @@ export async function middleware(request: NextRequest) {
             );
           },
         },
-      }
-    );
+      });
 
-    const { data: { user } } = await supabase.auth.getUser();
-    supabaseUser = user;
+      const { data: { user } } = await supabase.auth.getUser();
+      supabaseUser = user;
+    }
   } catch {
     // Supabase error - continue with demo check
+    console.warn("[MODE DEMO] Middleware - Supabase non disponible");
   }
 
   const isAuthenticated = !!demoUser || !!supabaseUser;

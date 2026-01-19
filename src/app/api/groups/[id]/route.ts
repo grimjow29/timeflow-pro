@@ -18,6 +18,13 @@ export async function GET(
   try {
     const { id } = await params;
     const supabase = await createClient();
+    if (!supabase) {
+      return NextResponse.json(
+        { error: "Non authentifié" },
+        { status: 401 }
+      );
+    }
+
 
     // Vérifier l'authentification
     const {
@@ -77,6 +84,13 @@ export async function PUT(
   try {
     const { id } = await params;
     const supabase = await createClient();
+    if (!supabase) {
+      return NextResponse.json(
+        { error: "Non authentifié" },
+        { status: 401 }
+      );
+    }
+
 
     // Vérifier l'authentification
     const {
@@ -96,9 +110,9 @@ export async function PUT(
       .from("profiles")
       .select("role")
       .eq("id", user.id)
-      .single();
+      .single() as { data: { role: string } | null };
 
-    if (profile?.role !== "ADMIN") {
+    if (!profile || profile.role !== "ADMIN") {
       return NextResponse.json(
         { error: "Permission refusée. Seuls les admins peuvent modifier les groupes." },
         { status: 403 }
@@ -135,7 +149,7 @@ export async function PUT(
     // Mettre à jour le groupe
     const { data, error } = await supabase
       .from("groups")
-      .update(updateData)
+      .update(updateData as never)
       .eq("id", id)
       .select(`
         *,
@@ -184,6 +198,13 @@ export async function DELETE(
   try {
     const { id } = await params;
     const supabase = await createClient();
+    if (!supabase) {
+      return NextResponse.json(
+        { error: "Non authentifié" },
+        { status: 401 }
+      );
+    }
+
 
     // Vérifier l'authentification
     const {
@@ -203,9 +224,9 @@ export async function DELETE(
       .from("profiles")
       .select("role")
       .eq("id", user.id)
-      .single();
+      .single() as { data: { role: string } | null };
 
-    if (profile?.role !== "ADMIN") {
+    if (!profile || profile.role !== "ADMIN") {
       return NextResponse.json(
         { error: "Permission refusée. Seuls les admins peuvent supprimer les groupes." },
         { status: 403 }

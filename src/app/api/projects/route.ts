@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
     const newProject = {
       id: `proj-${Date.now()}`,
       name: body.name.trim(),
-      description: body.description?.trim() || null,
+      description: body.description?.trim(),
       color: body.color || "#8b5cf6",
       parent_id: body.parent_id || null,
       billable: body.billable ?? true,
@@ -80,7 +80,6 @@ export async function POST(request: NextRequest) {
       status: "ACTIVE" as const,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
-      children: [],
     };
 
     addSessionProject(newProject);

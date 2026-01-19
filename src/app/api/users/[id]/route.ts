@@ -21,6 +21,13 @@ export async function GET(
   try {
     const { id } = await params;
     const supabase = await createClient();
+    if (!supabase) {
+      return NextResponse.json(
+        { error: "Non authentifié" },
+        { status: 401 }
+      );
+    }
+
 
     // Vérifier l'authentification
     const {
@@ -79,6 +86,13 @@ export async function PUT(
   try {
     const { id } = await params;
     const supabase = await createClient();
+    if (!supabase) {
+      return NextResponse.json(
+        { error: "Non authentifié" },
+        { status: 401 }
+      );
+    }
+
 
     // Vérifier l'authentification
     const {
@@ -98,7 +112,10 @@ export async function PUT(
       .from("profiles")
       .select("role")
       .eq("id", user.id)
-      .single();
+      .single() as {
+        data: { role: UserRole } | null;
+        error: unknown
+      };
 
     if (currentUserProfile?.role !== "ADMIN") {
       return NextResponse.json(
@@ -130,7 +147,10 @@ export async function PUT(
           .from("groups")
           .select("id")
           .eq("id", body.group_id)
-          .single();
+          .single() as {
+            data: { id: string } | null;
+            error: unknown
+          };
 
         if (!groupExists) {
           return NextResponse.json(
@@ -162,7 +182,7 @@ export async function PUT(
     // Mettre à jour l'utilisateur
     const { data, error } = await supabase
       .from("profiles")
-      .update(updateData)
+      .update(updateData as never)
       .eq("id", id)
       .select(`
         *,

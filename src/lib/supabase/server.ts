@@ -1,13 +1,32 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import type { Database } from "@/lib/database.types";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
-export async function createClient() {
+/**
+ * Créer un client Supabase côté serveur
+ * Mode DEMO: Retourne null si les clés sont invalides
+ */
+export async function createClient(): Promise<SupabaseClient<Database> | null> {
   const cookieStore = await cookies();
 
-  return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
+  try {
+    // Vérifier que les variables d'environnement existent
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+    if (!url || !anonKey || url === "" || anonKey === "") {
+      console.warn("[MODE DEMO] Clés Supabase manquantes - Utilisation des données mock");
+      return null;
+    }
+
+    // Validation basique du format de la clé
+    if (!anonKey.startsWith("eyJ")) {
+      console.warn("[MODE DEMO] Clé Supabase invalide - Utilisation des données mock");
+      return null;
+    }
+
+    return createServerClient<Database>(url, anonKey, {
       cookies: {
         getAll() {
           return cookieStore.getAll();
@@ -24,6 +43,9 @@ export async function createClient() {
           }
         },
       },
-    }
-  );
+    });
+  } catch (error) {
+    console.warn("[MODE DEMO] Erreur création client Supabase:", error);
+    return null;
+  }
 }

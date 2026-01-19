@@ -1,25 +1,20 @@
 export const dynamic = "force-dynamic";
 
-import { createClient } from "@/lib/supabase/server";
+import { getAuthUser } from "@/lib/auth-helper";
+import { getMockApprovals, getMockTimeEntries } from "@/lib/mock-data";
 import { NextRequest, NextResponse } from "next/server";
 
 /**
  * GET /api/approvals/[id]
- * Récupère les détails d'un timesheet spécifique
+ * Récupère les détails d'un timesheet spécifique (MODE DEMO)
  */
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = await createClient();
+    const { user, error: authError } = await getAuthUser();
     const { id } = await params;
-
-    // Vérifier l'authentification
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
 
     if (authError || !user) {
       return NextResponse.json(
@@ -28,62 +23,31 @@ export async function GET(
       );
     }
 
-    // Récupérer le timesheet avec toutes les infos
-    const { data, error } = await supabase
-      .from("timesheet_approvals")
-      .select(`
-        *,
-        user:profiles!timesheet_approvals_user_id_fkey(id, name, email, avatar_url),
-        validator:profiles!timesheet_approvals_validator_id_fkey(id, name, email),
-        entries:time_entries(
-          id,
-          duration,
-          date,
-          description,
-          billable,
-          project:projects(id, name, color)
-        )
-      `)
-      .eq("id", id)
-      .single();
+    // MODE DEMO: Récupérer le timesheet mock
+    const approvals = getMockApprovals(user.id);
+    const approval = approvals.find(a => a.id === id);
 
-    if (error) {
-      console.error("Erreur récupération approval:", error);
+    if (!approval) {
       return NextResponse.json(
         { error: "Timesheet non trouvé" },
         { status: 404 }
       );
     }
 
-    // Vérifier les permissions (utilisateur peut voir son propre timesheet, managers/admin peuvent tout voir)
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role, group_id")
-      .eq("id", user.id)
-      .single();
-
-    const isOwner = data.user_id === user.id;
-    const isAdmin = profile?.role === "ADMIN";
-    const isValidator = profile?.role === "VALIDATOR";
-    const isManager = profile?.role === "MANAGER";
-
-    if (!isOwner && !isAdmin && !isValidator && !isManager) {
-      return NextResponse.json(
-        { error: "Accès non autorisé" },
-        { status: 403 }
-      );
-    }
+    // Récupérer les entrées de temps pour cette période
+    const entries = getMockTimeEntries(
+      user.id,
+      approval.week_start,
+      approval.week_end
+    );
 
     // Calculer les stats
-    const entries = data.entries || [];
-    const totalMinutes = entries.reduce(
-      (sum: number, e: { duration: number }) => sum + e.duration,
-      0
-    );
+    const totalMinutes = entries.reduce((sum, e) => sum + e.duration, 0);
 
     return NextResponse.json({
       data: {
-        ...data,
+        ...approval,
+        entries,
         totalHours: `${Math.floor(totalMinutes / 60)}:${String(
           totalMinutes % 60
         ).padStart(2, "0")}`,

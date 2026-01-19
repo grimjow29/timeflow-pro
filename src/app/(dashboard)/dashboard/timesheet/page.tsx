@@ -50,6 +50,8 @@ export default function TimesheetPage() {
 
   // Charger les projets
   const loadProjects = useCallback(async () => {
+    if (!supabase) return;
+
     const { data, error } = await supabase
       .from("projects")
       .select("*")
