@@ -37,8 +37,9 @@ const themeScript = `
   (function() {
     function getTheme() {
       const stored = localStorage.getItem('timeflow-theme');
-      if (stored === 'light' || stored === 'dark') return stored;
-      if (stored === 'system' || !stored) {
+      if (stored === 'light') return 'light';
+      if (stored === 'dark' || !stored) return 'dark';
+      if (stored === 'system') {
         return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
       }
       return 'dark';

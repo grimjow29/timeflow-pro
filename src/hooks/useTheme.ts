@@ -18,12 +18,12 @@ function getSystemTheme(): 'dark' | 'light' {
 }
 
 function getStoredTheme(): Theme {
-  if (typeof window === 'undefined') return 'system';
+  if (typeof window === 'undefined') return 'dark';
   const stored = localStorage.getItem(THEME_KEY);
   if (stored === 'dark' || stored === 'light' || stored === 'system') {
     return stored;
   }
-  return 'system';
+  return 'dark';
 }
 
 function applyTheme(resolvedTheme: 'dark' | 'light') {
@@ -50,7 +50,7 @@ function applyTheme(resolvedTheme: 'dark' | 'light') {
 }
 
 export function useTheme(): UseThemeReturn {
-  const [theme, setThemeState] = useState<Theme>('system');
+  const [theme, setThemeState] = useState<Theme>('dark');
   const [resolvedTheme, setResolvedTheme] = useState<'dark' | 'light'>('dark');
   const [mounted, setMounted] = useState(false);
 
