@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { getAuthUser } from "@/lib/auth-helper";
 import { NextRequest, NextResponse } from "next/server";
 import { CreateTimeEntryInput } from "@/lib/types";

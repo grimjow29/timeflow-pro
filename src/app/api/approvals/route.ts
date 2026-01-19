@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { getAuthUser } from "@/lib/auth-helper";
 import { NextRequest, NextResponse } from "next/server";
 import { getMockApprovals, getMockTimeEntries, MOCK_PROJECTS, MOCK_USERS } from "@/lib/mock-data";
