@@ -1,17 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-
-// BYPASS AUTH FOR TESTING
-const BYPASS_AUTH = process.env.BYPASS_AUTH === "true";
-
-// Mock user for testing
-const MOCK_USER = {
-  id: "mock-user-id",
-  email: "test@timeflow.pro",
-  app_metadata: {},
-  user_metadata: { name: "Test User" },
-  aud: "authenticated",
-  created_at: new Date().toISOString(),
-};
+import { cookies } from "next/headers";
 
 export type AuthUser = {
   id: string;
@@ -23,17 +11,49 @@ export type AuthUser = {
 };
 
 /**
- * Get authenticated user - returns mock user if BYPASS_AUTH is enabled
+ * Check for active session
+ */
+async function getSessionUser(): Promise<AuthUser | null> {
+  try {
+    const cookieStore = await cookies();
+    const sessionCookie = cookieStore.get("tf_session");
+    if (!sessionCookie?.value) return null;
+
+    const session = JSON.parse(sessionCookie.value);
+    if (session.expires && session.expires > Date.now()) {
+      return {
+        id: session.user.id,
+        email: session.user.email,
+        app_metadata: {},
+        user_metadata: { name: session.user.name },
+        aud: "authenticated",
+        created_at: session.user.created_at,
+      };
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+/**
+ * Get authenticated user
  */
 export async function getAuthUser(): Promise<{ user: AuthUser | null; error: Error | null }> {
-  if (BYPASS_AUTH) {
-    return { user: MOCK_USER as AuthUser, error: null };
+  // Check session first
+  const sessionUser = await getSessionUser();
+  if (sessionUser) {
+    return { user: sessionUser, error: null };
   }
 
-  const supabase = await createClient();
-  const { data: { user }, error } = await supabase.auth.getUser();
-
-  return { user: user as AuthUser | null, error };
+  // Fallback to Supabase
+  try {
+    const supabase = await createClient();
+    const { data: { user }, error } = await supabase.auth.getUser();
+    return { user: user as AuthUser | null, error };
+  } catch (error) {
+    return { user: null, error: error as Error };
+  }
 }
 
 /**

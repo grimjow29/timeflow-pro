@@ -46,9 +46,11 @@ export function Sidebar({ user }: SidebarProps) {
   const router = useRouter();
 
   const handleSignOut = async () => {
+    await fetch("/api/auth/logout", { method: "POST" });
     const supabase = createClient();
     await supabase.auth.signOut();
     router.push("/login");
+    router.refresh();
   };
 
   const NavItem = ({

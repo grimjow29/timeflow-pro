@@ -1,7 +1,6 @@
 "use client";
 
-import { SessionProvider as NextAuthSessionProvider } from "next-auth/react";
-
+// Supabase gère l'auth via cookies, pas besoin de context provider
 export function SessionProvider({ children }: { children: React.ReactNode }) {
-  return <NextAuthSessionProvider>{children}</NextAuthSessionProvider>;
+  return <>{children}</>;
 }

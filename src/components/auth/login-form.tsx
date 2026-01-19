@@ -1,23 +1,37 @@
 "use client";
 
 import { useState } from "react";
-import { signIn } from "next-auth/react";
 import { Clock } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 export function LoginForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const router = useRouter();
 
-  const handleMicrosoftLogin = async () => {
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     setIsLoading(true);
     setError(null);
 
     try {
-      await signIn("microsoft-entra-id", {
-        callbackUrl: "/dashboard",
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
       });
-    } catch {
-      setError("Une erreur est survenue");
+
+      const data = await res.json();
+
+      if (!res.ok) throw new Error(data.error || "Identifiants incorrects");
+
+      router.push("/dashboard");
+      router.refresh();
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : "Une erreur est survenue";
+      setError(errorMessage);
       setIsLoading(false);
     }
   };
@@ -34,44 +48,58 @@ export function LoginForm() {
         TimeFlow Pro
       </h1>
       <p className="text-slate-400 mb-8 text-center font-light">
-        Advanced time tracking for the modern era.
+        Connectez-vous avec votre compte Microsoft
       </p>
 
       {/* Error message */}
       {error && (
-        <div className="w-full mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm text-center">
+        <div className="w-full mb-4 p-3 rounded-lg text-sm text-center bg-red-500/10 border border-red-500/20 text-red-400">
           {error}
         </div>
       )}
 
-      {/* Microsoft Login Button */}
-      <button
-        onClick={handleMicrosoftLogin}
-        disabled={isLoading}
-        className="w-full group relative flex items-center justify-center gap-3 bg-surfaceHighlight hover:bg-surface border border-white/10 hover:border-primary-500/50 text-white px-6 py-3.5 rounded-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
-      >
-        <div className="absolute inset-0 bg-primary-500/10 opacity-0 group-hover:opacity-100 rounded-lg transition-opacity" />
+      {/* Login Form */}
+      <form onSubmit={handleSubmit} className="w-full space-y-4">
+        <div>
+          <input
+            type="email"
+            placeholder="Email professionnel"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-primary-500/50 transition-colors"
+          />
+        </div>
+        <div>
+          <input
+            type="password"
+            placeholder="Mot de passe"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            minLength={1}
+            className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-primary-500/50 transition-colors"
+          />
+        </div>
 
-        {/* Microsoft Logo */}
-        <svg className="w-5 h-5" viewBox="0 0 23 23">
-          <path fill="#f35022" d="M1 1h10v10H1z" />
-          <path fill="#80bb03" d="M12 1h10v10H12z" />
-          <path fill="#03a5f0" d="M1 12h10v10H1z" />
-          <path fill="#ffba08" d="M12 12h10v10H12z" />
-        </svg>
-
-        <span className="font-medium relative z-10">
+        <button
+          type="submit"
+          disabled={isLoading}
+          className="w-full flex items-center justify-center gap-3 bg-white hover:bg-gray-100 text-gray-800 px-6 py-3.5 rounded-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+        >
+          <svg className="w-5 h-5" viewBox="0 0 21 21" xmlns="http://www.w3.org/2000/svg">
+            <rect x="1" y="1" width="9" height="9" fill="#f25022"/>
+            <rect x="11" y="1" width="9" height="9" fill="#7fba00"/>
+            <rect x="1" y="11" width="9" height="9" fill="#00a4ef"/>
+            <rect x="11" y="11" width="9" height="9" fill="#ffb900"/>
+          </svg>
           {isLoading ? "Connexion en cours..." : "Se connecter avec Microsoft"}
-        </span>
-      </button>
+        </button>
+      </form>
 
-      {/* Terms */}
+      {/* Info */}
       <p className="mt-8 text-xs text-slate-500 text-center">
-        En continuant, vous acceptez nos{" "}
-        <span className="text-slate-400 hover:text-primary-400 cursor-pointer">
-          Conditions d&apos;utilisation
-        </span>
-        .
+        Authentification sécurisée via Microsoft Azure AD
       </p>
     </div>
   );
