@@ -100,39 +100,88 @@ body {
   background: #a78bfa;
 }
 
-/* Light mode text and element overrides */
-.light .text-white {
+/* ============================================
+   LIGHT MODE - COMPREHENSIVE OVERRIDES
+   ============================================ */
+
+/* Force all text-white to dark in light mode */
+.light .text-white,
+.light [class*="text-white"] {
   color: #1e293b !important;
 }
 
-.light .text-slate-200 {
+/* Force all slate text colors to appropriate dark shades */
+.light .text-slate-200,
+.light [class*="text-slate-200"] {
   color: #334155 !important;
 }
 
-.light .text-slate-300 {
+.light .text-slate-300,
+.light [class*="text-slate-300"] {
   color: #475569 !important;
 }
 
-.light .text-slate-400 {
+.light .text-slate-400,
+.light [class*="text-slate-400"] {
   color: #64748b !important;
 }
 
-.light .text-slate-500 {
+.light .text-slate-500,
+.light [class*="text-slate-500"] {
   color: #94a3b8 !important;
 }
 
-.light .text-slate-600 {
+.light .text-slate-600,
+.light [class*="text-slate-600"] {
   color: #64748b !important;
 }
 
-.light .placeholder-slate-500::placeholder {
-  color: #94a3b8 !important;
+/* Placeholder text in light mode */
+.light .placeholder-slate-500::placeholder,
+.light input::placeholder,
+.light textarea::placeholder {
+  color: #64748b !important;
+}
+
+/* CRITICAL: Input and textarea text visibility */
+.light input,
+.light textarea,
+.light input[type="text"],
+.light input[type="email"],
+.light input[type="password"],
+.light input[type="number"] {
+  color: #1e293b !important;
+  caret-color: #7c3aed !important;
+}
+
+/* Timer and monospace text */
+.light .font-mono,
+.light [class*="font-mono"] {
+  color: #1e293b !important;
+}
+
+/* Ensure text in glass cards is visible */
+.light .glass-card,
+.light .glass-card * {
+  --tw-text-opacity: 1;
+}
+
+.light .glass-card .text-white,
+.light .glass-card .text-lg,
+.light .glass-card .text-2xl,
+.light .glass-card .text-xl {
+  color: #1e293b !important;
 }
 
 /* Light mode backgrounds */
 .light .bg-white\/5,
-.light .bg-white\/10 {
-  background-color: rgba(0, 0, 0, 0.05) !important;
+.light [class*="bg-white/5"] {
+  background-color: rgba(0, 0, 0, 0.04) !important;
+}
+
+.light .bg-white\/10,
+.light [class*="bg-white/10"] {
+  background-color: rgba(0, 0, 0, 0.06) !important;
 }
 
 .light .hover\:bg-white\/5:hover,
@@ -140,25 +189,28 @@ body {
   background-color: rgba(0, 0, 0, 0.08) !important;
 }
 
-.light .bg-surfaceHighlight {
+.light .bg-surfaceHighlight,
+.light [class*="bg-surfaceHighlight"] {
   background-color: #f1f5f9 !important;
 }
 
 .light .bg-surfaceHighlight\/50 {
-  background-color: rgba(241, 245, 249, 0.5) !important;
+  background-color: rgba(241, 245, 249, 0.7) !important;
 }
 
 .light .bg-surface\/50 {
-  background-color: rgba(255, 255, 255, 0.5) !important;
+  background-color: rgba(255, 255, 255, 0.8) !important;
 }
 
 /* Light mode borders */
 .light .border-white\/5,
-.light .border-white\/10 {
+.light .border-white\/10,
+.light [class*="border-white/5"],
+.light [class*="border-white/10"] {
   border-color: rgba(0, 0, 0, 0.1) !important;
 }
 
-/* Light mode primary colors adjustment */
+/* Primary colors stay vibrant in light mode */
 .light .text-primary-300 {
   color: #7c3aed !important;
 }
@@ -167,33 +219,63 @@ body {
   color: #7c3aed !important;
 }
 
-/* Light mode input styling */
-.light input,
-.light textarea {
-  color: #1e293b !important;
+.light .text-primary-500 {
+  color: #6d28d9 !important;
 }
 
-.light input::placeholder,
-.light textarea::placeholder {
-  color: #94a3b8 !important;
-}
-
-/* Light mode timer display */
-.light .font-mono {
-  color: #1e293b;
-}
-
-/* Light mode sidebar */
+/* Sidebar backgrounds */
 .light .bg-primary-500\/10 {
-  background-color: rgba(139, 92, 246, 0.15) !important;
+  background-color: rgba(139, 92, 246, 0.12) !important;
 }
 
 .light .bg-primary-500\/5 {
-  background-color: rgba(139, 92, 246, 0.08) !important;
+  background-color: rgba(139, 92, 246, 0.06) !important;
 }
 
 .light .bg-primary-900\/20 {
-  background-color: rgba(139, 92, 246, 0.15) !important;
+  background-color: rgba(139, 92, 246, 0.12) !important;
+}
+
+/* Table cells in light mode */
+.light table,
+.light th,
+.light td {
+  color: #1e293b;
+}
+
+.light th {
+  color: #475569 !important;
+}
+
+/* Badge and status colors remain visible */
+.light .bg-emerald-500\/20 {
+  background-color: rgba(16, 185, 129, 0.15) !important;
+}
+
+.light .bg-red-500\/20 {
+  background-color: rgba(239, 68, 68, 0.15) !important;
+}
+
+/* Navigation links */
+.light nav a,
+.light nav button {
+  color: #475569;
+}
+
+.light nav a:hover,
+.light nav button:hover {
+  color: #1e293b;
+}
+
+/* Header elements */
+.light header .font-mono {
+  color: #1e293b !important;
+}
+
+/* Ensure timer in header is visible */
+.light header span,
+.light header div {
+  color: inherit;
 }
 
 /* Selection */
