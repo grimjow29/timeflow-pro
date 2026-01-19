@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ArrowRight, Loader2, RefreshCw } from "lucide-react";
+import { ArrowRight, Loader2, RefreshCw, X, Clock, Calendar } from "lucide-react";
 import { GlassCard } from "@/components/ui/glass-card";
 import { TimesheetApproval } from "@/lib/types";
 
@@ -14,17 +14,24 @@ interface ApprovalWithDetails extends TimesheetApproval {
   }>;
 }
 
+// Event pour notifier le sidebar
+const notifySidebarRefresh = () => {
+  window.dispatchEvent(new CustomEvent('approvals-updated'));
+};
+
 export default function ApprovalsPage() {
   const [approvals, setApprovals] = useState<ApprovalWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [processingId, setProcessingId] = useState<string | null>(null);
+  const [selectedApproval, setSelectedApproval] = useState<ApprovalWithDetails | null>(null);
 
   const fetchApprovals = async () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch("/api/approvals");
+      // Filtrer par status=PENDING pour n'afficher que les approbations en attente
+      const response = await fetch("/api/approvals?status=PENDING");
       const result = await response.json();
 
       if (!response.ok) {
@@ -59,6 +66,8 @@ export default function ApprovalsPage() {
 
       // Retirer l'approbation de la liste
       setApprovals((prev) => prev.filter((a) => a.id !== id));
+      // Notifier le sidebar pour mettre à jour le badge
+      notifySidebarRefresh();
     } catch (err) {
       alert(err instanceof Error ? err.message : "Erreur lors de l'approbation");
     } finally {
@@ -85,6 +94,8 @@ export default function ApprovalsPage() {
 
       // Retirer l'approbation de la liste
       setApprovals((prev) => prev.filter((a) => a.id !== id));
+      // Notifier le sidebar pour mettre à jour le badge
+      notifySidebarRefresh();
     } catch (err) {
       alert(err instanceof Error ? err.message : "Erreur lors du rejet");
     } finally {
@@ -239,7 +250,10 @@ export default function ApprovalsPage() {
                       </span>
                     ))}
                   </div>
-                  <button className="text-xs text-primary-400 hover:text-white flex items-center gap-1 transition-colors">
+                  <button
+                    onClick={() => setSelectedApproval(approval)}
+                    className="text-xs text-primary-400 hover:text-white flex items-center gap-1 transition-colors"
+                  >
                     Voir détails
                     <ArrowRight className="w-3 h-3" />
                   </button>
@@ -247,6 +261,128 @@ export default function ApprovalsPage() {
               )}
             </GlassCard>
           ))}
+        </div>
+      )}
+
+      {/* Modal Détails */}
+      {selectedApproval && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <GlassCard className="w-full max-w-lg p-0 overflow-hidden">
+            {/* Header */}
+            <div className="p-6 border-b border-white/5 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <img
+                  src={
+                    selectedApproval.user?.avatar_url ||
+                    `https://api.dicebear.com/7.x/avataaars/svg?seed=${
+                      selectedApproval.user?.name || selectedApproval.user_id
+                    }&backgroundColor=ffdfbf`
+                  }
+                  alt={selectedApproval.user?.name || "Utilisateur"}
+                  className="w-10 h-10 rounded-full"
+                />
+                <div>
+                  <h3 className="text-lg font-medium text-white">
+                    {selectedApproval.user?.name || "Utilisateur"}
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    {formatPeriod(selectedApproval.week_start, selectedApproval.week_end)}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setSelectedApproval(null)}
+                className="p-2 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-6 space-y-6">
+              {/* Stats */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-white/5 rounded-lg p-4">
+                  <div className="flex items-center gap-2 text-slate-400 text-xs mb-1">
+                    <Clock className="w-4 h-4" />
+                    Total Heures
+                  </div>
+                  <div className="text-2xl font-mono font-medium text-white">
+                    {selectedApproval.totalHours}
+                  </div>
+                </div>
+                <div className="bg-white/5 rounded-lg p-4">
+                  <div className="flex items-center gap-2 text-slate-400 text-xs mb-1">
+                    <Calendar className="w-4 h-4" />
+                    Soumis le
+                  </div>
+                  <div className="text-sm text-white">
+                    {new Date(selectedApproval.submitted_at || selectedApproval.created_at).toLocaleDateString("fr-FR", {
+                      day: "numeric",
+                      month: "long",
+                      year: "numeric",
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              {/* Breakdown */}
+              <div>
+                <h4 className="text-sm font-medium text-white mb-3">Répartition par projet</h4>
+                <div className="space-y-2">
+                  {selectedApproval.breakdown?.map((item, i) => (
+                    <div
+                      key={i}
+                      className="flex items-center justify-between bg-white/5 rounded-lg p-3"
+                    >
+                      <div className="flex items-center gap-2">
+                        <div
+                          className="w-3 h-3 rounded-full"
+                          style={{ backgroundColor: item.color || "#8b5cf6" }}
+                        />
+                        <span className="text-sm text-white">{item.project}</span>
+                      </div>
+                      <span className="text-sm font-mono text-slate-300">{item.hours}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Comments */}
+              {selectedApproval.comments && (
+                <div>
+                  <h4 className="text-sm font-medium text-white mb-2">Commentaires</h4>
+                  <p className="text-sm text-slate-400 bg-white/5 rounded-lg p-3">
+                    {selectedApproval.comments}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Actions */}
+            <div className="p-6 border-t border-white/5 flex gap-3">
+              <button
+                onClick={() => {
+                  handleReject(selectedApproval.id);
+                  setSelectedApproval(null);
+                }}
+                disabled={processingId === selectedApproval.id}
+                className="flex-1 px-4 py-2.5 rounded-lg border border-white/10 text-slate-300 hover:bg-white/5 hover:text-red-400 transition-colors text-sm font-medium disabled:opacity-50"
+              >
+                Rejeter
+              </button>
+              <button
+                onClick={() => {
+                  handleApprove(selectedApproval.id);
+                  setSelectedApproval(null);
+                }}
+                disabled={processingId === selectedApproval.id}
+                className="flex-1 px-4 py-2.5 rounded-lg bg-primary-600 hover:bg-primary-500 text-white shadow-lg shadow-primary-500/20 transition-colors text-sm font-medium disabled:opacity-50"
+              >
+                Approuver
+              </button>
+            </div>
+          </GlassCard>
         </div>
       )}
     </div>

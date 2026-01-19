@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback } from "react";
 import { ChevronLeft, ChevronRight, Calendar, Play, Send, Loader2 } from "lucide-react";
 import { GlassCard } from "@/components/ui/glass-card";
 import { formatTime, getWeekDates } from "@/lib/utils";
-import { createClient } from "@/lib/supabase/client";
 import { Project } from "@/lib/types";
 
 const DAYS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
@@ -41,30 +40,27 @@ export default function TimesheetPage() {
     Record<string, { minutes: number; entryId?: string }[]>
   >({});
 
-  const supabase = createClient();
-
   // Calculer les dates de la semaine
   useEffect(() => {
     setWeekDates(getWeekDates(currentDate));
   }, [currentDate]);
 
-  // Charger les projets
+  // Charger les projets via API (fonctionne en mode démo)
   const loadProjects = useCallback(async () => {
-    if (!supabase) return;
+    try {
+      const response = await fetch("/api/projects?status=ACTIVE");
+      const result = await response.json();
 
-    const { data, error } = await supabase
-      .from("projects")
-      .select("*")
-      .eq("status", "ACTIVE")
-      .order("name");
-
-    if (!error && data) {
-      setProjects(data);
-      if (data.length > 0 && !selectedProjectId) {
-        setSelectedProjectId(data[0].id);
+      if (response.ok && result.data) {
+        setProjects(result.data);
+        if (result.data.length > 0 && !selectedProjectId) {
+          setSelectedProjectId(result.data[0].id);
+        }
       }
+    } catch (error) {
+      console.error("Erreur chargement projets:", error);
     }
-  }, [supabase, selectedProjectId]);
+  }, [selectedProjectId]);
 
   // Construire la grille de données à partir des entrées
   const buildTimeDataGrid = useCallback((entries: TimeEntryWithProject[]) => {
@@ -121,16 +117,25 @@ export default function TimesheetPage() {
     }
   }, [weekDates, buildTimeDataGrid]);
 
-  // Charger les données au montage et quand la semaine change
+  // Charger les projets au montage
   useEffect(() => {
-    loadProjects();
-  }, [loadProjects]);
+    const fetchProjects = async () => {
+      await loadProjects();
+    };
+    fetchProjects();
+  }, []);
 
+  // Charger les entrées quand la semaine ou les projets changent
   useEffect(() => {
-    if (weekDates.length > 0 && projects.length > 0) {
-      loadTimeEntries();
+    if (weekDates.length > 0) {
+      if (projects.length > 0) {
+        loadTimeEntries();
+      } else {
+        // Pas de projets, arrêter le loading
+        setLoading(false);
+      }
     }
-  }, [weekDates, projects, loadTimeEntries]);
+  }, [weekDates, projects.length]);
 
   // Timer logic
   useEffect(() => {

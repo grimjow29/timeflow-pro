@@ -48,6 +48,46 @@ Aucune tâche en cours pour le moment.
 
 ---
 
+## Corrections Récentes (2026-01-19) ✅
+
+### [x] Bug Fixes Critiques
+**Date**: 2026-01-19
+**Détails**:
+
+1. **Timesheet - Chargement des projets**
+   - Problème: Race condition, projets ne chargeaient pas
+   - Solution: Utilisation de `/api/projects` au lieu de Supabase direct
+   - Fichier: `/src/app/(dashboard)/dashboard/timesheet/page.tsx`
+
+2. **Validations - Bouton "Voir détails"**
+   - Problème: Bouton sans onClick, ne faisait rien
+   - Solution: Ajout d'un modal complet avec détails de l'approbation
+   - Fichier: `/src/app/(dashboard)/dashboard/approvals/page.tsx`
+
+3. **Validations - Filtre PENDING manquant**
+   - Problème: La page affichait toutes les approbations
+   - Solution: Ajout du filtre `?status=PENDING` dans l'API call
+   - Fichier: `/src/app/(dashboard)/dashboard/approvals/page.tsx`
+
+4. **Sidebar - Badge non dynamique**
+   - Problème: Badge ne se mettait pas à jour après approbation
+   - Solution: Event listener 'approvals-updated' + refresh automatique
+   - Fichiers: `/src/components/layout/sidebar.tsx`, `/src/app/(dashboard)/dashboard/approvals/page.tsx`
+
+5. **API Approvals - Persistance en mode démo**
+   - Problème: Les approbations traitées réapparaissaient
+   - Solution: Ajout de `markApprovalAsProcessed()` et `isApprovalProcessed()`
+   - Fichiers: `/src/lib/mock-data.ts`, `/src/app/api/approvals/[id]/approve/route.ts`, `/src/app/api/approvals/[id]/reject/route.ts`, `/src/app/api/approvals/route.ts`
+
+**Tests Playwright effectués**:
+- ✅ Timesheet charge avec 5 projets et entrées de temps
+- ✅ Modal "Voir détails" s'ouvre avec toutes les informations
+- ✅ Approbation depuis le modal fonctionne
+- ✅ Badge se met à jour immédiatement (1 → 0)
+- ✅ Page affiche "Aucune validation en attente" après approbation
+
+---
+
 ## Tâches À Venir ⏳
 
 ### Priorité Haute

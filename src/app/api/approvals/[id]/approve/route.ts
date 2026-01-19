@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { getAuthUser } from "@/lib/auth-helper";
 import { NextRequest, NextResponse } from "next/server";
+import { markApprovalAsProcessed } from "@/lib/mock-data";
 
 /**
  * POST /api/approvals/[id]/approve
@@ -31,6 +32,9 @@ export async function POST(
     } catch {
       // Body vide ou invalide, ignorer
     }
+
+    // MODE DEMO: Marquer l'approbation comme traitée
+    markApprovalAsProcessed(id);
 
     // MODE DEMO: Simuler l'approbation
     const approvedTimesheet = {

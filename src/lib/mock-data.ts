@@ -235,6 +235,9 @@ export function getMockApprovals(userId: string) {
   const lastMonday = new Date(today);
   lastMonday.setDate(today.getDate() - today.getDay() - 6);
 
+  const thisMonday = new Date(today);
+  thisMonday.setDate(today.getDate() - today.getDay() + 1);
+
   return [
     {
       id: "approval-1",
@@ -250,7 +253,36 @@ export function getMockApprovals(userId: string) {
       created_at: lastMonday.toISOString(),
       updated_at: lastMonday.toISOString(),
     },
+    {
+      id: "approval-2",
+      user_id: userId,
+      validator_id: null,
+      week_start: thisMonday.toISOString().split('T')[0],
+      week_end: new Date(thisMonday.getTime() + 6 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      total_hours: 38.5,
+      status: "PENDING",
+      comments: null,
+      submitted_at: new Date().toISOString(),
+      reviewed_at: null,
+      created_at: thisMonday.toISOString(),
+      updated_at: thisMonday.toISOString(),
+    },
   ];
+}
+
+// Storage local pour les approbations traitées (approved/rejected)
+const processedApprovalIds: Set<string> = new Set();
+
+export function markApprovalAsProcessed(id: string) {
+  processedApprovalIds.add(id);
+}
+
+export function isApprovalProcessed(id: string): boolean {
+  return processedApprovalIds.has(id);
+}
+
+export function getProcessedApprovalIds(): string[] {
+  return Array.from(processedApprovalIds);
 }
 
 // Storage local pour les données créées pendant la session

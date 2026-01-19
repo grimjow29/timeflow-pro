@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Search, Bell, Play, Pause, Square } from "lucide-react";
+import { Search, Bell, Play, Pause, Square, Menu } from "lucide-react";
 import { formatTime } from "@/lib/utils";
 import type { Profile } from "@/lib/types";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { useMobileMenu } from "./mobile-menu-context";
 
 interface HeaderProps {
   user: Profile | null;
@@ -15,6 +16,7 @@ export function Header({ user }: HeaderProps) {
   const [isRunning, setIsRunning] = useState(false);
   const [seconds, setSeconds] = useState(0);
   const [currentProject, setCurrentProject] = useState("Aucun projet");
+  const { toggle } = useMobileMenu();
 
   // Load timer state from localStorage
   useEffect(() => {
@@ -77,10 +79,20 @@ export function Header({ user }: HeaderProps) {
   };
 
   return (
-    <header className="h-16 glass-panel border-b border-white/5 flex items-center justify-between px-6 z-10 sticky top-0">
-      {/* Search */}
-      <div className="flex items-center flex-1 max-w-xl">
-        <div className="relative w-full">
+    <header className="h-16 glass-panel border-b border-white/5 flex items-center justify-between px-4 lg:px-6 z-10 sticky top-0">
+      {/* Mobile menu button + Search */}
+      <div className="flex items-center flex-1 gap-3">
+        {/* Hamburger menu - mobile only */}
+        <button
+          onClick={toggle}
+          className="lg:hidden p-2 -ml-2 rounded-lg hover:bg-white/5 text-slate-400 hover:text-white transition-colors"
+          aria-label="Menu"
+        >
+          <Menu className="w-6 h-6" />
+        </button>
+
+        {/* Search - hidden on small mobile */}
+        <div className="hidden sm:flex relative flex-1 max-w-xl">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
           <input
             type="text"
@@ -90,15 +102,15 @@ export function Header({ user }: HeaderProps) {
         </div>
       </div>
 
-      <div className="flex items-center gap-4 ml-6">
-        {/* Timer Widget */}
-        <div className="flex items-center gap-3 bg-surfaceHighlight border border-white/10 rounded-full pl-4 pr-1.5 py-1.5 shadow-lg shadow-black/20">
+      <div className="flex items-center gap-2 sm:gap-4">
+        {/* Timer Widget - simplified on mobile */}
+        <div className="flex items-center gap-2 sm:gap-3 bg-surfaceHighlight border border-white/10 rounded-full pl-3 sm:pl-4 pr-1.5 py-1.5 shadow-lg shadow-black/20">
           <div className="flex flex-col">
-            <span className="text-[10px] text-slate-400 leading-none">
+            <span className="text-[10px] text-slate-400 leading-none hidden sm:block">
               {isRunning ? currentProject : "Timer"}
             </span>
             <span
-              className={`font-mono font-medium tracking-wide leading-none mt-1 ${
+              className={`font-mono font-medium tracking-wide leading-none sm:mt-1 text-sm sm:text-base ${
                 isRunning ? "text-primary-400" : "text-slate-400"
               }`}
             >
@@ -136,8 +148,8 @@ export function Header({ user }: HeaderProps) {
         {/* Theme Toggle */}
         <ThemeToggle />
 
-        {/* Notifications */}
-        <button className="w-8 h-8 rounded-lg hover:bg-white/5 flex items-center justify-center text-slate-400 transition-colors relative">
+        {/* Notifications - hidden on small mobile */}
+        <button className="hidden sm:flex w-8 h-8 rounded-lg hover:bg-white/5 items-center justify-center text-slate-400 transition-colors relative">
           <Bell className="w-5 h-5" />
           <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border-2 border-surface" />
         </button>

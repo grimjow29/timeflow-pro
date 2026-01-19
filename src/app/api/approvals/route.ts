@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { getAuthUser } from "@/lib/auth-helper";
 import { NextRequest, NextResponse } from "next/server";
-import { getMockApprovals, getMockTimeEntries, MOCK_USERS } from "@/lib/mock-data";
+import { getMockApprovals, getMockTimeEntries, MOCK_USERS, isApprovalProcessed } from "@/lib/mock-data";
 import { TimesheetApproval } from "@/lib/types";
 
 const sessionApprovals: TimesheetApproval[] = [];
@@ -25,6 +25,9 @@ export async function GET(request: NextRequest) {
     const statusFilter = searchParams.get("status");
 
     let approvals = [...getMockApprovals(user.id), ...sessionApprovals];
+
+    // Filtrer les approbations déjà traitées (en mode demo)
+    approvals = approvals.filter(a => !isApprovalProcessed(a.id));
 
     if (statusFilter) {
       approvals = approvals.filter(a => a.status === statusFilter);
