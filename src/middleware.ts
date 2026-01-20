@@ -34,10 +34,11 @@ async function verifySignature(data: string, signature: string): Promise<boolean
 
 /**
  * Check for demo session with signature verification
+ * Returns { user, shouldDeleteCookie } to handle invalid sessions
  */
-async function getDemoSession(request: NextRequest) {
+async function getDemoSession(request: NextRequest): Promise<{ user: unknown; shouldDeleteCookie: boolean }> {
   const demoSessionCookie = request.cookies.get("tf_session");
-  if (!demoSessionCookie?.value) return null;
+  if (!demoSessionCookie?.value) return { user: null, shouldDeleteCookie: false };
 
   try {
     const sessionValue = demoSessionCookie.value;
@@ -49,8 +50,8 @@ async function getDemoSession(request: NextRequest) {
       // Verify signature
       const isValid = await verifySignature(base64Data, signature);
       if (!isValid) {
-        console.warn("Invalid session signature detected");
-        return null;
+        console.warn("Invalid session signature detected - will delete cookie");
+        return { user: null, shouldDeleteCookie: true };
       }
 
       // Parse session data
@@ -58,19 +59,20 @@ async function getDemoSession(request: NextRequest) {
       const session = JSON.parse(jsonData);
 
       if (session.expires && session.expires > Date.now()) {
-        return session.user;
+        return { user: session.user, shouldDeleteCookie: false };
+      } else {
+        // Session expired
+        return { user: null, shouldDeleteCookie: true };
       }
     } else {
-      // Legacy format (plain JSON) - reject for security
-      // Only accept signed sessions
-      console.warn("Legacy unsigned session detected - rejecting");
-      return null;
+      // Legacy format (plain JSON) - reject and delete for security
+      console.warn("Legacy unsigned session detected - will delete cookie");
+      return { user: null, shouldDeleteCookie: true };
     }
   } catch (error) {
     console.error("Session parsing error:", error);
-    return null;
+    return { user: null, shouldDeleteCookie: true };
   }
-  return null;
 }
 
 export async function middleware(request: NextRequest) {
@@ -81,7 +83,12 @@ export async function middleware(request: NextRequest) {
   });
 
   // Check demo session first (with signature verification)
-  const demoUser = await getDemoSession(request);
+  const { user: demoUser, shouldDeleteCookie } = await getDemoSession(request);
+
+  // Delete invalid/expired session cookie
+  if (shouldDeleteCookie) {
+    response.cookies.delete("tf_session");
+  }
 
   // Then check Supabase auth (MODE DEMO: skip si clé invalide)
   let supabaseUser = null;

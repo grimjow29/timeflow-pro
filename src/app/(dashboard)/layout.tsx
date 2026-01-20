@@ -6,11 +6,11 @@ import { Header } from "@/components/layout/header";
 import { DashboardClient } from "@/components/layout/dashboard-client";
 
 async function getSession() {
-  const cookieStore = await cookies();
-  const sessionCookie = cookieStore.get("tf_session");
-  if (!sessionCookie?.value) return null;
-
   try {
+    const cookieStore = await cookies();
+    const sessionCookie = cookieStore.get("tf_session");
+    if (!sessionCookie?.value) return null;
+
     const sessionValue = sessionCookie.value;
 
     // Handle signed session format (base64.signature)
@@ -23,10 +23,12 @@ async function getSession() {
         return session.user;
       }
     }
-  } catch {
+    // Invalid format or expired
+    return null;
+  } catch (error) {
+    console.error("Session parsing error in dashboard:", error);
     return null;
   }
-  return null;
 }
 
 export default async function DashboardLayout({

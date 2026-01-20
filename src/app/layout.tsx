@@ -62,12 +62,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="fr" suppressHydrationWarning>
+    <html lang="fr" className="dark" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
       <body
         className={`${jakarta.variable} ${jetbrains.variable} antialiased bg-background text-slate-200 overflow-hidden h-screen`}
+        style={{ backgroundColor: '#0f0a1a' }}
       >
         <SessionProvider>{children}</SessionProvider>
       </body>
